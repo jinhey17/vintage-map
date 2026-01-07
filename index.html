@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>빈티지 보물지도</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .bottom-sheet {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease-out;
+      z-index: 100;
+    }
+    .bottom-sheet.closed { transform: translateY(calc(100% - 80px)); }
+    .bottom-sheet.open { transform: translateY(30%); }
+    .handle {
+      width: 40px;
+      height: 4px;
+      background: #d1d5db;
+      border-radius: 2px;
+      margin: 12px auto;
+    }
+    .map-container {
+      position: relative;
+      overflow: hidden;
+      transition: height 0.3s ease-out;
+      background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 50%, #7dd3fc 100%);
+    }
+    .map-marker {
+      position: absolute;
+      font-size: 32px;
+      cursor: pointer;
+      transition: all 0.2s;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      animation: bounce 2s infinite;
+    }
+    .map-marker:hover {
+      transform: scale(1.3);
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .map-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 2px solid #e5e7eb;
+      background: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin: 4px;
+    }
+    .filter-chip.active {
+      background: #3b82f6;
+      color: white;
+      border-color: #3b82f6;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 12px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .card:active { transform: scale(0.98); }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: flex-end;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      width: 100%;
+      border-radius: 20px 20px 0 0;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideUp 0.3s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .detail-page {
+      position: fixed;
+      inset: 0;
+      background: white;
+      z-index: 2000;
+      overflow-y: auto;
+      animation: slideInRight 0.3s ease-out;
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+    .photo-slider {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+    .photo-slider::-webkit-scrollbar { display: none; }
+    .photo-slide {
+      flex: 0 0 100%;
+      scroll-snap-align: start;
+      height: 250px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+    }
+    .info-popup {
+      position: absolute;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      min-width: 180px;
+      z-index: 50;
+      animation: popIn 0.2s ease-out;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .detail-map {
+      height: 200px;
+      background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // 샘플 데이터
+    const sampleStores = [
+      {
+        id: 1,
+        name: '레트로하우스',
+        address: '서울 마포구 월드컵로 123',
+        lat: 37.5665,
+        lng: 126.9780,
+        phone: '02-1234-5678',
+        hours: '12:00 - 21:00 (월요일 휴무)',
+        photos: ['🏪', '👕', '👗'],
+        storeTypes: ['luxury', 'select'],
+        disposal: ['buyback', 'donation_receipt'],
+        styles: ['americana', 'classic'],
+        gender: 'unisex',
+        amenities: { fitting: true, restroom: true, parking: false },
+        rating: 4.5,
+        reviewCount: 23,
+        distance: '도보 5분',
+        mapPosition: { x: '20%', y: '30%' }
+      },
+      {
+        id: 2,
+        name: '빈티지앤모어',
+        address: '서울 강남구 테헤란로 456',
+        lat: 37.5000,
+        lng: 127.0280,
+        phone: '02-2345-6789',
+        hours: '11:00 - 20:00 (연중무휴)',
+        photos: ['🏬', '👚', '🧥'],
+        storeTypes: ['kilo'],
+        disposal: ['donation_receipt'],
+        styles: ['street', 'japanese'],
+        gender: 'female',
+        amenities: { fitting: true, restroom: false, parking: true },
+        rating: 4.2,
+        reviewCount: 45,
+        distance: '도보 12분',
+        mapPosition: { x: '70%', y: '60%' }
+      },
+      {
+        id: 3,
+        name: '올드스쿨빈티지',
+        address: '서울 홍대입구역 5번출구',
+        lat: 37.5570,
+        lng: 126.9240,
+        phone: '02-3456-7890',
+        hours: '13:00 - 22:00',
+        photos: ['🎪', '👖', '🧢'],
+        storeTypes: ['select'],
+        disposal: ['buyback'],
+        styles: ['americana', 'street'],
+        gender: 'male',
+        amenities: { fitting: true, restroom: true, parking: false },
+        rating: 4.7,
+        reviewCount: 67,
+        distance: '도보 3분',
+        mapPosition: { x: '15%', y: '70%' }
+      },
+      {
+        id: 4,
+        name: '아름다운가게 강남점',
+        address: '서울 강남구 강남대로 789',
+        lat: 37.5172,
+        lng: 127.0473,
+        phone: '02-4567-8901',
+        hours: '10:00 - 19:00',
+        photos: ['🍀', '👔', '🎒'],
+        storeTypes: ['social'],
+        disposal: ['donation_receipt', 'donation'],
+        styles: ['classic'],
+        gender: 'unisex',
+        amenities: { fitting: false, restroom: true, parking: true },
+        rating: 4.3,
+        reviewCount: 89,
+        distance: '도보 8분',
+        mapPosition: { x: '65%', y: '25%' }
+      },
+      {
+        id: 5,
+        name: '보물창고',
+        address: '서울 용산구 이태원로 234',
+        lat: 37.5345,
+        lng: 126.9944,
+        phone: '02-5678-9012',
+        hours: '12:00 - 21:00 (화요일 휴무)',
+        photos: ['🎁', '👗', '👠'],
+        storeTypes: ['kilo'],
+        disposal: ['buyback'],
+        styles: ['japanese', 'street'],
+        gender: 'female',
+        amenities: { fitting: true, restroom: false, parking: false },
+        rating: 4.6,
+        reviewCount: 34,
+        distance: '도보 15분',
+        mapPosition: { x: '45%', y: '45%' }
+      }
+    ];
+
+    const storeTypeLabels = {
+      luxury: { emoji: '💎', label: '명품/하이엔드' },
+      select: { emoji: '🧢', label: '셀렉트샵' },
+      kilo: { emoji: '⚖️', label: '킬로/창고형' },
+      social: { emoji: '🍀', label: '사회적기업' }
+    };
+
+    const disposalLabels = {
+      donation_receipt: { emoji: '🧾', label: '기부(영수증O)' },
+      donation: { emoji: '🎁', label: '기부(영수증X)' },
+      buyback: { emoji: '💰', label: '매입가능' }
+    };
+
+    const styleLabels = {
+      americana: { emoji: '🇺🇸', label: '아메카지' },
+      japanese: { emoji: '👗', label: '일본/페미닌' },
+      street: { emoji: '🛹', label: '스트릿/Y2K' },
+      classic: { emoji: '👔', label: '클래식' }
+    };
+
+    // 샘플 지도 컴포넌트
+    function SampleMap({ stores, onMarkerClick }) {
+      const [activePopup, setActivePopup] = useState(null);
+
+      return (
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          <div className="map-overlay">
+            <div style={{ fontSize: '48px', marginBottom: '8px' }}>🗺️</div>
+            <div style={{ color: '#1e40af', fontWeight: 'bold' }}>서울 지역</div>
+          </div>
+
+          {stores.map(store => (
+            <div key={store.id}>
+              <div
+                className="map-marker"
+                style={{
+                  left: store.mapPosition.x,
+                  top: store.mapPosition.y
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivePopup(activePopup === store.id ? null : store.id);
+                }}
+              >
+                📍
+              </div>
+
+              {activePopup === store.id && (
+                <div
+                  className="info-popup"
+                  style={{
+                    left: store.mapPosition.x,
+                    top: `calc(${store.mapPosition.y} + 40px)`
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{store.name}</div>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+                    {store.address}
+                  </div>
+                  <button
+                    onClick={() => {
+                      onMarkerClick(store);
+                      setActivePopup(null);
+                    }}
+                    style={{
+                      background: '#3b82f6',
+                      color: 'white',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      width: '100%',
+                      fontWeight: '500'
+                    }}
+                  >
+                    상세보기
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // 필터 모달
+    function FilterModal({ isOpen, onClose, filters, setFilters }) {
+      if (!isOpen) return null;
+
+      const toggleFilter = (category, value) => {
+        setFilters(prev => {
+          const current = prev[category] || [];
+          if (current.includes(value)) {
+            return { ...prev, [category]: current.filter(v => v !== value) };
+          } else {
+            return { ...prev, [category]: [...current, value] };
+          }
+        });
+      };
+
+      const activeCount = Object.values(filters).flat().length;
+
+      return (
+        <div className="modal" onClick={onClose}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <button onClick={onClose} className="text-2xl">←</button>
+              <h2 className="text-lg font-bold">필터</h2>
+              <button onClick={() => setFilters({})} className="text-blue-500">초기화</button>
+            </div>
+
+            <div className="p-4">
+              <h3 className="font-bold mb-3">🏛️ 매장 성격</h3>
+              <div className="flex flex-wrap mb-6">
+                {Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (
+                  <div
+                    key={key}
+                    className={`filter-chip ${filters.storeTypes?.includes(key) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('storeTypes', key)}
+                  >
+                    <span className="mr-2">{emoji}</span>
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <h3 className="font-bold mb-3">♻️ 옷 처분 가능한 곳</h3>
+              <div className="flex flex-wrap mb-6">
+                {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
+                  <div
+                    key={key}
+                    className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('disposal', key)}
+                  >
+                    <span className="mr-2">{emoji}</span>
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <h3 className="font-bold mb-3">💡 스타일</h3>
+              <div className="flex flex-wrap mb-6">
+                {Object.entries(styleLabels).map(([key, { emoji, label }]) => (
+                  <div
+                    key={key}
+                    className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('styles', key)}
+                  >
+                    <span className="mr-2">{emoji}</span>
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <h3 className="font-bold mb-3">👥 성별</h3>
+              <div className="flex flex-wrap mb-6">
+                {[
+                  { value: 'female', label: '여성전용' },
+                  { value: 'male', label: '남성전용' },
+                  { value: 'unisex', label: '남녀공용' }
+                ].map(({ value, label }) => (
+                  <div
+                    key={value}
+                    className={`filter-chip ${filters.gender?.includes(value) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('gender', value)}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <h3 className="font-bold mb-3">🏢 편의시설</h3>
+              <div className="flex flex-wrap mb-6">
+                {[
+                  { value: 'fitting', label: '피팅룸' },
+                  { value: 'restroom', label: '화장실' },
+                  { value: 'parking', label: '주차가능' }
+                ].map(({ value, label }) => (
+                  <div
+                    key={value}
+                    className={`filter-chip ${filters.amenities?.includes(value) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('amenities', value)}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t p-4">
+              <button
+                onClick={onClose}
+                className="w-full bg-blue-500 text-white py-3 rounded-lg font-bold"
+              >
+                적용하기 {activeCount > 0 && `(${activeCount})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 상세 페이지
+    function DetailPage({ store, onClose }) {
+      if (!store) return null;
+
+      return (
+        <div className="detail-page">
+          <div className="sticky top-0 bg-white border-b p-4 flex items-center z-10">
+            <button onClick={onClose} className="text-2xl mr-4">←</button>
+            <h1 className="text-lg font-bold">{store.name}</h1>
+          </div>
+
+          <div className="photo-slider">
+            {store.photos.map((photo, i) => (
+              <div key={i} className="photo-slide">{photo}</div>
+            ))}
+          </div>
+
+          <div className="p-4">
+            <h2 className="text-2xl font-bold mb-2">{store.name}</h2>
+            <div className="flex items-center mb-4">
+              <span className="text-yellow-500 mr-1">⭐</span>
+              <span className="font-semibold mr-1">{store.rating}</span>
+              <span className="text-gray-500">(리뷰 {store.reviewCount}개)</span>
+            </div>
+
+            <div className="space-y-2 mb-6">
+              <div className="flex items-start">
+                <span className="mr-2">📍</span>
+                <span className="text-gray-700">{store.address}</span>
+              </div>
+              <div className="flex items-start">
+                <span className="mr-2">🕐</span>
+                <span className="text-gray-700">{store.hours}</span>
+              </div>
+              <div className="flex items-start">
+                <span className="mr-2">📞</span>
+                <span className="text-gray-700">{store.phone}</span>
+              </div>
+            </div>
+
+            <hr className="my-6" />
+
+            <h3 className="font-bold mb-3">🏛️ 매장 성격</h3>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {store.storeTypes.map(type => (
+                <span key={type} className="px-3 py-1 bg-gray-100 rounded-full text-sm">
+                  {storeTypeLabels[type].emoji} {storeTypeLabels[type].label}
+                </span>
+              ))}
+            </div>
+
+            <h3 className="font-bold mb-3">♻️ 옷 처분하기</h3>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {store.disposal.map(d => (
+                <span key={d} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">
+                  {disposalLabels[d].emoji} {disposalLabels[d].label}
+                </span>
+              ))}
+            </div>
+
+            <h3 className="font-bold mb-3">💡 주요 스타일</h3>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {store.styles.map(style => (
+                <span key={style} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+                  {styleLabels[style].emoji} {styleLabels[style].label}
+                </span>
+              ))}
+            </div>
+
+            <h3 className="font-bold mb-3">🏢 편의시설</h3>
+            <div className="flex gap-4 mb-6">
+              <span>{store.amenities.fitting ? '✅' : '❌'} 피팅룸</span>
+              <span>{store.amenities.restroom ? '✅' : '❌'} 화장실</span>
+              <span>{store.amenities.parking ? '✅' : '❌'} 주차</span>
+            </div>
+
+            <hr className="my-6" />
+
+            <div className="detail-map">
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '48px' }}>📍</div>
+                <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+                  {store.address}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 my-6">
+              <button className="py-3 border rounded-lg font-medium">📍 길찾기</button>
+              <button className="py-3 border rounded-lg font-medium">📞 전화</button>
+              <button className="py-3 border rounded-lg font-medium">🔗 공유</button>
+            </div>
+
+            <hr className="my-6" />
+
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold">💬 리뷰 {store.reviewCount}개</h3>
+              <button className="text-blue-500 text-sm">전체보기 &gt;</button>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <span className="font-semibold mr-2">👤 사용자A</span>
+                  <span className="text-yellow-500">⭐⭐⭐⭐⭐</span>
+                </div>
+                <p className="text-gray-700 mb-1">"매입 가격 합리적이고 친절해요!"</p>
+                <p className="text-gray-400 text-sm">2024.12.20</p>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <span className="font-semibold mr-2">👤 사용자B</span>
+                  <span className="text-yellow-500">⭐⭐⭐⭐</span>
+                </div>
+                <p className="text-gray-700 mb-1">"보물찾는 재미가 있어요!"</p>
+                <p className="text-gray-400 text-sm">2024.12.18</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 메인 앱
+    function App() {
+      const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+      const [isFilterOpen, setIsFilterOpen] = useState(false);
+      const [filters, setFilters] = useState({});
+      const [selectedStore, setSelectedStore] = useState(null);
+
+      const filteredStores = sampleStores.filter(store => {
+        if (filters.storeTypes?.length && !filters.storeTypes.some(f => store.storeTypes.includes(f))) return false;
+        if (filters.disposal?.length && !filters.disposal.some(f => store.disposal.includes(f))) return false;
+        if (filters.styles?.length && !filters.styles.some(f => store.styles.includes(f))) return false;
+        if (filters.gender?.length && !filters.gender.includes(store.gender)) return false;
+        if (filters.amenities?.length && !filters.amenities.every(f => store.amenities[f])) return false;
+        return true;
+      });
+
+      const activeFilterCount = Object.values(filters).flat().length;
+
+      const handleReset = () => {
+        setIsBottomSheetOpen(false);
+        setFilters({});
+        setSelectedStore(null);
+      };
+
+      return (
+        <>
+          {/* 헤더 */}
+          <div className="fixed top-0 left-0 right-0 bg-white border-b p-4 flex justify-between items-center z-50">
+            <h1 
+              className="text-xl font-bold cursor-pointer hover:text-blue-500 transition-colors"
+              onClick={handleReset}
+            >
+              🗺️ 빈티지 보물지도
+            </h1>
+            <button
+              onClick={() => setIsFilterOpen(true)}
+              className="relative px-4 py-2 border rounded-lg hover:bg-gray-50"
+            >
+              🎛️ 필터
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* 지도 */}
+          <div 
+            className="map-container pt-16" 
+            style={{ height: isBottomSheetOpen ? '33vh' : 'calc(100vh - 64px)' }}
+            onClick={() => {
+              // 지도 클릭 시 팝업 닫기는 SampleMap 내부에서 처리
+            }}
+          >
+            <SampleMap 
+              stores={filteredStores}
+              onMarkerClick={(store) => {
+                setSelectedStore(store);
+                setIsBottomSheetOpen(false);
+              }}
+            />
+          </div>
+
+          {/* 바텀시트 */}
+          <div className={`bottom-sheet ${isBottomSheetOpen ? 'open' : 'closed'}`}>
+            <div
+              className="handle-area cursor-pointer"
+              onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}
+            >
+              <div className="handle"></div>
+              {!isBottomSheetOpen && (
+                <div className="text-center pb-4 font-semibold">
+                  목록 열기 ({filteredStores.length}개)
+                </div>
+              )}
+            </div>
+
+            {isBottomSheetOpen && (
+              <div className="overflow-y-auto" style={{ maxHeight: 'calc(70vh - 60px)' }}>
+                <div className="text-center py-2 font-semibold border-b">
+                  매장 {filteredStores.length}개
+                </div>
+                
+                {filteredStores.map(store => (
+                  <div
+                    key={store.id}
+                    id={`store-${store.id}`}
+                    className="card"
+                    onClick={() => setSelectedStore(store)}
+                  >
+                    <h3 className="font-bold text-lg mb-2">🏪 {store.name}</h3>
+                    <p className="text-gray-600 text-sm mb-2">📍 {store.address} · {store.distance}</p>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {store.storeTypes.map(type => (
+                        <span key={type} className="text-xs px-2 py-1 bg-gray-100 rounded">
+                          {storeTypeLabels[type].emoji} {storeTypeLabels[type].label}
+                        </span>
+                      ))}
+                      {store.disposal.slice(0, 2).map(d => (
+                        <span key={d} className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded">
+                          {disposalLabels[d].emoji} {disposalLabels[d].label}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-yellow-500 mr-1">⭐</span>
+                      <span className="font-semibold mr-1">{store.rating}</span>
+                      <span className="text-gray-500 text-sm">({store.reviewCount})</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 필터 모달 */}
+          <FilterModal
+            isOpen={isFilterOpen}
+            onClose={() => setIsFilterOpen(false)}
+            filters={filters}
+            setFilters={setFilters}
+          />
+
+          {/* 상세 페이지 */}
+          {selectedStore && (
+            <DetailPage
+              store={selectedStore}
+              onClose={() => setSelectedStore(null)}
+            />
+          )}
+        </>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
