@@ -169,14 +169,14 @@
     }
     .btn-group button:hover { background: #f9fafb; }
     
-    .review-card {
-      padding: 16px;
-      background: #f9fafb;
-      border-radius: 12px;
-      margin-bottom: 12px;
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: #6b7280;
     }
     
-    /* 카카오맵 인포윈도우 스타일 */
     .info-window {
       padding: 12px 16px;
       min-width: 200px;
@@ -202,9 +202,6 @@
       font-size: 13px;
       font-weight: 500;
     }
-    .info-window button:hover {
-      background: #2563eb;
-    }
   </style>
 </head>
 <body>
@@ -217,16 +214,8 @@
     window.markers = [];
     window.currentOverlay = null;
     
-    // 매장 데이터
-    window.storeData = [
-      { id: 1, name: '레트로하우스', address: '서울 마포구 월드컵로 123', lat: 37.5565, lng: 126.9224 },
-      { id: 2, name: '빈티지앤모어', address: '서울 강남구 테헤란로 456', lat: 37.5000, lng: 127.0280 },
-      { id: 3, name: '올드스쿨빈티지', address: '서울 마포구 와우산로 94', lat: 37.5536, lng: 126.9234 },
-      { id: 4, name: '아름다운가게 강남점', address: '서울 강남구 강남대로 789', lat: 37.5172, lng: 127.0473 },
-      { id: 5, name: '보물창고', address: '서울 용산구 이태원로 234', lat: 37.5345, lng: 126.9944 }
-    ];
-
-    window.onload = function() {
+    // 지도 초기화 함수
+    window.initMap = function() {
       if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') {
         document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fee2e2;color:#dc2626;">카카오맵 로딩 실패</div>';
         return;
@@ -240,18 +229,34 @@
       var map = new kakao.maps.Map(container, options);
       window.kakaoMap = map;
       
-      // 줌 컨트롤
       var zoomControl = new kakao.maps.ZoomControl();
       map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
       
-      // 마커 생성
-      window.storeData.forEach(function(store) {
+      kakao.maps.event.addListener(map, 'click', function() {
+        if (window.currentOverlay) {
+          window.currentOverlay.setMap(null);
+          window.currentOverlay = null;
+        }
+      });
+    };
+    
+    // 마커 업데이트 함수
+    window.updateMarkers = function(stores) {
+      // 기존 마커 제거
+      window.markers.forEach(function(item) {
+        item.marker.setMap(null);
+        if (item.overlay) item.overlay.setMap(null);
+      });
+      window.markers = [];
+      
+      if (!window.kakaoMap) return;
+      
+      stores.forEach(function(store) {
         var marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(store.lat, store.lng),
-          map: map
+          map: window.kakaoMap
         });
         
-        // 커스텀 오버레이 내용
         var content = document.createElement('div');
         content.className = 'info-window';
         content.innerHTML = 
@@ -269,23 +274,14 @@
           if (window.currentOverlay) {
             window.currentOverlay.setMap(null);
           }
-          overlay.setMap(map);
+          overlay.setMap(window.kakaoMap);
           window.currentOverlay = overlay;
         });
         
         window.markers.push({ marker: marker, overlay: overlay, store: store });
       });
-      
-      // 지도 클릭 시 오버레이 닫기
-      kakao.maps.event.addListener(map, 'click', function() {
-        if (window.currentOverlay) {
-          window.currentOverlay.setMap(null);
-          window.currentOverlay = null;
-        }
-      });
     };
     
-    // 상세보기 열기 함수
     window.openStoreDetail = function(storeId) {
       if (window.currentOverlay) {
         window.currentOverlay.setMap(null);
@@ -295,37 +291,82 @@
         window.setSelectedStoreById(storeId);
       }
     };
+    
+    window.onload = function() {
+      window.initMap();
+    };
   </script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    const sampleStores = [
-      { id: 1, name: '레트로하우스', address: '서울 마포구 월드컵로 123', lat: 37.5565, lng: 126.9224, phone: '02-1234-5678', hours: '12:00 - 21:00 (월요일 휴무)', storeTypes: ['luxury', 'select'], disposal: ['buyback', 'donation_receipt'], styles: ['americana', 'classic'], gender: 'unisex', amenities: { fitting: true, restroom: true, parking: false }, rating: 4.5, reviewCount: 23, distance: '도보 5분' },
-      { id: 2, name: '빈티지앤모어', address: '서울 강남구 테헤란로 456', lat: 37.5000, lng: 127.0280, phone: '02-2345-6789', hours: '11:00 - 20:00 (연중무휴)', storeTypes: ['kilo'], disposal: ['donation_receipt'], styles: ['street', 'japanese'], gender: 'female', amenities: { fitting: true, restroom: false, parking: true }, rating: 4.2, reviewCount: 45, distance: '도보 12분' },
-      { id: 3, name: '올드스쿨빈티지', address: '서울 마포구 와우산로 94', lat: 37.5536, lng: 126.9234, phone: '02-3456-7890', hours: '13:00 - 22:00', storeTypes: ['select'], disposal: ['buyback'], styles: ['americana', 'street'], gender: 'male', amenities: { fitting: true, restroom: true, parking: false }, rating: 4.7, reviewCount: 67, distance: '도보 3분' },
-      { id: 4, name: '아름다운가게 강남점', address: '서울 강남구 강남대로 789', lat: 37.5172, lng: 127.0473, phone: '02-4567-8901', hours: '10:00 - 19:00', storeTypes: ['social'], disposal: ['donation_receipt', 'donation'], styles: ['classic'], gender: 'unisex', amenities: { fitting: false, restroom: true, parking: true }, rating: 4.3, reviewCount: 89, distance: '도보 8분' },
-      { id: 5, name: '보물창고', address: '서울 용산구 이태원로 234', lat: 37.5345, lng: 126.9944, phone: '02-5678-9012', hours: '12:00 - 21:00 (화요일 휴무)', storeTypes: ['kilo'], disposal: ['buyback'], styles: ['japanese', 'street'], gender: 'female', amenities: { fitting: true, restroom: false, parking: false }, rating: 4.6, reviewCount: 34, distance: '도보 15분' }
-    ];
+    // 구글 스프레드시트 URL
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
 
+    // CSV 파싱 함수
+    function parseCSV(csv) {
+      const lines = csv.split('\n');
+      const headers = lines[0].split('\t');
+      const stores = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const values = line.split('\t');
+        if (values.length < 10) continue;
+        
+        const store = {
+          id: parseInt(values[0]) || i,
+          name: values[1] || '',
+          address: values[2] || '',
+          lat: parseFloat(values[3]) || 0,
+          lng: parseFloat(values[4]) || 0,
+          phone: values[5] || '',
+          hours: values[6] || '',
+          storeType: values[7] || '',
+          disposal: values[8] || '',
+          styles: values[9] || '',
+          gender: values[10] || '',
+          fitting: values[11]?.toUpperCase() === 'TRUE',
+          restroom: values[12]?.toUpperCase() === 'TRUE',
+          parking: values[13]?.toUpperCase() === 'TRUE',
+        };
+        
+        if (store.name && store.lat && store.lng) {
+          stores.push(store);
+        }
+      }
+      
+      return stores;
+    }
+
+    // 라벨 매핑
     const storeTypeLabels = {
-      luxury: { emoji: '💎', label: '명품/하이엔드' },
-      select: { emoji: '🧢', label: '셀렉트샵' },
-      kilo: { emoji: '⚖️', label: '킬로/창고형' },
-      social: { emoji: '🍀', label: '사회적기업' }
+      '명품': { emoji: '💎', label: '명품' },
+      '셀렉트샵': { emoji: '🧢', label: '셀렉트샵' },
+      '킬로샵': { emoji: '⚖️', label: '킬로샵' },
+      '사회적기업': { emoji: '🍀', label: '사회적기업' }
     };
 
     const disposalLabels = {
-      donation_receipt: { emoji: '🧾', label: '기부(영수증O)' },
-      donation: { emoji: '🎁', label: '기부(영수증X)' },
-      buyback: { emoji: '💰', label: '매입가능' }
+      '판매가능': { emoji: '💰', label: '판매가능' },
+      '기부가능': { emoji: '🎁', label: '기부가능' },
+      '불가': { emoji: '❌', label: '불가' }
     };
 
     const styleLabels = {
-      americana: { emoji: '🇺🇸', label: '아메카지' },
-      japanese: { emoji: '👗', label: '일본/페미닌' },
-      street: { emoji: '🛹', label: '스트릿/Y2K' },
-      classic: { emoji: '👔', label: '클래식' }
+      '아메카지': { emoji: '🇺🇸', label: '아메카지' },
+      '일본페미닌': { emoji: '👗', label: '일본페미닌' },
+      '스트릿': { emoji: '🛹', label: '스트릿' },
+      '클래식': { emoji: '👔', label: '클래식' },
+      '기타': { emoji: '✨', label: '기타' }
+    };
+
+    const genderLabels = {
+      '남녀공용': { emoji: '👫', label: '남녀공용' },
+      '여성전용': { emoji: '👩', label: '여성전용' },
+      '남성전용': { emoji: '👨', label: '남성전용' }
     };
 
     function FilterModal({ isOpen, onClose, filters, setFilters }) {
@@ -354,16 +395,16 @@
             </div>
 
             <div style={{ padding: '16px' }}>
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 성격</h3>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 유형</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.storeTypes?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeTypes', key)}>
+                  <div key={key} className={`filter-chip ${filters.storeType?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeType', key)}>
                     <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
 
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분 가능한 곳</h3>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}>
@@ -383,13 +424,9 @@
 
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>👥 성별</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
-                {[
-                  { value: 'female', label: '👩 여성전용' },
-                  { value: 'male', label: '👨 남성전용' },
-                  { value: 'unisex', label: '👫 남녀공용' }
-                ].map(({ value, label }) => (
-                  <div key={value} className={`filter-chip ${filters.gender?.includes(value) ? 'active' : ''}`} onClick={() => toggleFilter('gender', value)}>
-                    {label}
+                {Object.entries(genderLabels).map(([key, { emoji, label }]) => (
+                  <div key={key} className={`filter-chip ${filters.gender?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('gender', key)}>
+                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
@@ -425,11 +462,10 @@
         if (!store || !mapRef.current || typeof kakao === 'undefined') return;
         
         const position = new kakao.maps.LatLng(store.lat, store.lng);
-        const options = {
+        const map = new kakao.maps.Map(mapRef.current, {
           center: position,
           level: 3
-        };
-        const map = new kakao.maps.Map(mapRef.current, options);
+        });
         
         new kakao.maps.Marker({
           position: position,
@@ -438,6 +474,11 @@
       }, [store]);
 
       if (!store) return null;
+
+      const storeTypeInfo = storeTypeLabels[store.storeType] || { emoji: '🏪', label: store.storeType };
+      const disposalInfo = disposalLabels[store.disposal] || { emoji: '📦', label: store.disposal };
+      const styleInfo = styleLabels[store.styles] || { emoji: '✨', label: store.styles };
+      const genderInfo = genderLabels[store.gender] || { emoji: '👥', label: store.gender };
 
       return (
         <div className="detail-page">
@@ -449,12 +490,7 @@
           <div className="photo-slide">🏪</div>
 
           <div style={{ padding: '20px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{store.name}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
-              <span style={{ color: '#eab308', marginRight: '4px', fontSize: '18px' }}>⭐</span>
-              <span style={{ fontWeight: '600', marginRight: '4px', fontSize: '18px' }}>{store.rating}</span>
-              <span style={{ color: '#6b7280' }}>(리뷰 {store.reviewCount}개)</span>
-            </div>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>{store.name}</h2>
 
             <div style={{ marginBottom: '24px', lineHeight: '1.8' }}>
               <p style={{ margin: '8px 0' }}>📍 {store.address}</p>
@@ -464,38 +500,31 @@
 
             <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '24px 0' }} />
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 성격</h3>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 유형</h3>
             <div style={{ marginBottom: '24px' }}>
-              {store.storeTypes.map(type => (
-                <span key={type} className="tag tag-gray">
-                  {storeTypeLabels[type].emoji} {storeTypeLabels[type].label}
-                </span>
-              ))}
+              <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
             </div>
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분하기</h3>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분</h3>
             <div style={{ marginBottom: '24px' }}>
-              {store.disposal.map(d => (
-                <span key={d} className="tag tag-green">
-                  {disposalLabels[d].emoji} {disposalLabels[d].label}
-                </span>
-              ))}
+              <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
             </div>
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 주요 스타일</h3>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 스타일</h3>
             <div style={{ marginBottom: '24px' }}>
-              {store.styles.map(style => (
-                <span key={style} className="tag tag-blue">
-                  {styleLabels[style].emoji} {styleLabels[style].label}
-                </span>
-              ))}
+              <span className="tag tag-blue">{styleInfo.emoji} {styleInfo.label}</span>
+            </div>
+
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>👥 성별</h3>
+            <div style={{ marginBottom: '24px' }}>
+              <span className="tag tag-gray">{genderInfo.emoji} {genderInfo.label}</span>
             </div>
 
             <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏢 편의시설</h3>
             <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-              <span>{store.amenities.fitting ? '✅' : '❌'} 피팅룸</span>
-              <span>{store.amenities.restroom ? '✅' : '❌'} 화장실</span>
-              <span>{store.amenities.parking ? '✅' : '❌'} 주차</span>
+              <span>{store.fitting ? '✅' : '❌'} 피팅룸</span>
+              <span>{store.restroom ? '✅' : '❌'} 화장실</span>
+              <span>{store.parking ? '✅' : '❌'} 주차</span>
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '24px 0' }} />
@@ -520,31 +549,6 @@
                 🔗 공유
               </button>
             </div>
-
-            <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '24px 0' }} />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontWeight: 'bold', margin: 0 }}>💬 리뷰 {store.reviewCount}개</h3>
-              <button style={{ color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer' }}>전체보기 &gt;</button>
-            </div>
-
-            <div className="review-card">
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontWeight: '600', marginRight: '8px' }}>👤 빈티지러버</span>
-                <span style={{ color: '#eab308' }}>⭐⭐⭐⭐⭐</span>
-              </div>
-              <p style={{ color: '#374151', marginBottom: '8px' }}>"매입 가격도 합리적이고 사장님이 친절해요! 보물 같은 아이템들이 많아서 자주 올 것 같아요 👍"</p>
-              <p style={{ color: '#9ca3af', fontSize: '13px' }}>2025.01.10</p>
-            </div>
-
-            <div className="review-card">
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontWeight: '600', marginRight: '8px' }}>👤 구제매니아</span>
-                <span style={{ color: '#eab308' }}>⭐⭐⭐⭐</span>
-              </div>
-              <p style={{ color: '#374151', marginBottom: '8px' }}>"디깅하는 재미가 있어요! 가격대도 다양하고 상태 좋은 옷들이 많습니다."</p>
-              <p style={{ color: '#9ca3af', fontSize: '13px' }}>2025.01.08</p>
-            </div>
             
             <div style={{ height: '40px' }}></div>
           </div>
@@ -553,29 +557,65 @@
     }
 
     function App() {
+      const [stores, setStores] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
       const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
       const [isFilterOpen, setIsFilterOpen] = useState(false);
       const [filters, setFilters] = useState({});
       const [selectedStore, setSelectedStore] = useState(null);
 
-      // 전역 함수로 등록 (지도 마커에서 호출)
+      // 스프레드시트에서 데이터 불러오기
+      useEffect(() => {
+        fetch(SHEET_URL)
+          .then(response => response.text())
+          .then(csv => {
+            const parsedStores = parseCSV(csv);
+            setStores(parsedStores);
+            setLoading(false);
+            
+            // 지도 마커 업데이트
+            if (window.updateMarkers) {
+              window.updateMarkers(parsedStores);
+            }
+          })
+          .catch(err => {
+            console.error('데이터 로딩 실패:', err);
+            setError('데이터를 불러오는데 실패했습니다.');
+            setLoading(false);
+          });
+      }, []);
+
+      // 전역 함수 등록
       useEffect(() => {
         window.setSelectedStoreById = (id) => {
-          const store = sampleStores.find(s => s.id === id);
+          const store = stores.find(s => s.id === id);
           if (store) {
             setSelectedStore(store);
           }
         };
-      }, []);
+      }, [stores]);
 
-      const filteredStores = sampleStores.filter(store => {
-        if (filters.storeTypes?.length && !filters.storeTypes.some(f => store.storeTypes.includes(f))) return false;
-        if (filters.disposal?.length && !filters.disposal.some(f => store.disposal.includes(f))) return false;
-        if (filters.styles?.length && !filters.styles.some(f => store.styles.includes(f))) return false;
+      // 필터링
+      const filteredStores = stores.filter(store => {
+        if (filters.storeType?.length && !filters.storeType.includes(store.storeType)) return false;
+        if (filters.disposal?.length && !filters.disposal.includes(store.disposal)) return false;
+        if (filters.styles?.length && !filters.styles.includes(store.styles)) return false;
         if (filters.gender?.length && !filters.gender.includes(store.gender)) return false;
-        if (filters.amenities?.length && !filters.amenities.every(f => store.amenities[f])) return false;
+        if (filters.amenities?.length) {
+          if (filters.amenities.includes('fitting') && !store.fitting) return false;
+          if (filters.amenities.includes('restroom') && !store.restroom) return false;
+          if (filters.amenities.includes('parking') && !store.parking) return false;
+        }
         return true;
       });
+
+      // 필터 변경 시 마커 업데이트
+      useEffect(() => {
+        if (window.updateMarkers) {
+          window.updateMarkers(filteredStores);
+        }
+      }, [filteredStores]);
 
       const activeFilterCount = Object.values(filters).flat().length;
 
@@ -584,6 +624,28 @@
         setFilters({});
         setSelectedStore(null);
       };
+
+      if (loading) {
+        return (
+          <>
+            <div className="header">
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
+            </div>
+            <div className="loading">데이터를 불러오는 중...</div>
+          </>
+        );
+      }
+
+      if (error) {
+        return (
+          <>
+            <div className="header">
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
+            </div>
+            <div className="loading" style={{ color: '#dc2626' }}>{error}</div>
+          </>
+        );
+      }
 
       return (
         <>
@@ -611,29 +673,21 @@
 
             {isBottomSheetOpen && (
               <div className="store-list">
-                {filteredStores.map(store => (
-                  <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
-                    <h3 style={{ fontWeight: 'bold', fontSize: '17px', marginBottom: '6px' }}>🏪 {store.name}</h3>
-                    <p style={{ color: '#4b5563', fontSize: '14px', marginBottom: '10px' }}>📍 {store.address} · {store.distance}</p>
-                    <div style={{ marginBottom: '10px' }}>
-                      {store.storeTypes.map(type => (
-                        <span key={type} className="tag tag-gray">
-                          {storeTypeLabels[type].emoji} {storeTypeLabels[type].label}
-                        </span>
-                      ))}
-                      {store.disposal.slice(0, 2).map(d => (
-                        <span key={d} className="tag tag-green">
-                          {disposalLabels[d].emoji} {disposalLabels[d].label}
-                        </span>
-                      ))}
+                {filteredStores.map(store => {
+                  const storeTypeInfo = storeTypeLabels[store.storeType] || { emoji: '🏪', label: store.storeType };
+                  const disposalInfo = disposalLabels[store.disposal] || { emoji: '📦', label: store.disposal };
+                  
+                  return (
+                    <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
+                      <h3 style={{ fontWeight: 'bold', fontSize: '17px', marginBottom: '6px' }}>🏪 {store.name}</h3>
+                      <p style={{ color: '#4b5563', fontSize: '14px', marginBottom: '10px' }}>📍 {store.address}</p>
+                      <div style={{ marginBottom: '10px' }}>
+                        <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
+                        <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span style={{ color: '#eab308', marginRight: '4px' }}>⭐</span>
-                      <span style={{ fontWeight: '600', marginRight: '4px' }}>{store.rating}</span>
-                      <span style={{ color: '#6b7280', fontSize: '14px' }}>({store.reviewCount})</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <div style={{ height: '20px' }}></div>
               </div>
             )}
