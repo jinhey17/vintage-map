@@ -7,6 +7,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb"></script>
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     #map { width: 100%; height: calc(100vh - 64px); margin-top: 64px; }
@@ -102,11 +103,13 @@
   <div id="root"></div>
   <div id="map"></div>
 
-  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb"></script>
-  
   <script>
-    // 페이지 로드 후 지도 초기화
     window.onload = function() {
+      if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') {
+        document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fee2e2;color:#dc2626;font-size:16px;text-align:center;padding:20px;">카카오맵 로딩 실패<br>잠시 후 다시 시도해주세요</div>';
+        return;
+      }
+      
       var container = document.getElementById('map');
       var options = {
         center: new kakao.maps.LatLng(37.5400, 126.9700),
@@ -114,11 +117,8 @@
       };
       var map = new kakao.maps.Map(container, options);
       
-      // 전역으로 저장
       window.kakaoMap = map;
-      window.kakaoMapReady = true;
       
-      // 마커 데이터
       var stores = [
         { id: 1, name: '레트로하우스', address: '서울 마포구 월드컵로 123', lat: 37.5565, lng: 126.9224 },
         { id: 2, name: '빈티지앤모어', address: '서울 강남구 테헤란로 456', lat: 37.5000, lng: 127.0280 },
@@ -127,7 +127,6 @@
         { id: 5, name: '보물창고', address: '서울 용산구 이태원로 234', lat: 37.5345, lng: 126.9944 }
       ];
       
-      // 마커 생성
       stores.forEach(function(store) {
         var marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(store.lat, store.lng),
