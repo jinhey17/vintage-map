@@ -261,6 +261,16 @@
       font-size: 13px;
       font-weight: 500;
     }
+    
+    .empty-list {
+      text-align: center;
+      padding: 40px 20px;
+      color: #9ca3af;
+    }
+    .empty-list p {
+      margin-top: 8px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -272,6 +282,7 @@
     window.markers = [];
     window.currentOverlay = null;
     window.myLocationMarker = null;
+    window.onBoundsChange = null;
     
     window.initMap = function() {
       if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') {
@@ -296,6 +307,28 @@
           window.currentOverlay = null;
         }
       });
+      
+      // 지도 영역 변경 이벤트 (이동, 줌)
+      kakao.maps.event.addListener(map, 'idle', function() {
+        if (window.onBoundsChange) {
+          var bounds = map.getBounds();
+          window.onBoundsChange(bounds);
+        }
+      });
+    };
+    
+    // 매장이 현재 지도 영역 안에 있는지 확인
+    window.isInBounds = function(lat, lng, bounds) {
+      if (!bounds) return true;
+      var sw = bounds.getSouthWest();
+      var ne = bounds.getNorthEast();
+      return lat >= sw.getLat() && lat <= ne.getLat() && lng >= sw.getLng() && lng <= ne.getLng();
+    };
+    
+    // 현재 지도 영역 가져오기
+    window.getMapBounds = function() {
+      if (!window.kakaoMap) return null;
+      return window.kakaoMap.getBounds();
     };
     
     window.updateMarkers = function(stores) {
@@ -406,7 +439,6 @@
 
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
 
-    // 따옴표 제거 함수
     function cleanValue(val) {
       if (!val) return '';
       return val.trim().replace(/^["']|["']$/g, '').replace(/"/g, '');
@@ -671,6 +703,7 @@
       const [filters, setFilters] = useState({});
       const [selectedStore, setSelectedStore] = useState(null);
       const [locating, setLocating] = useState(false);
+      const [mapBounds, setMapBounds] = useState(null);
 
       useEffect(() => {
         fetch(SHEET_URL)
@@ -683,12 +716,25 @@
             if (window.updateMarkers) {
               window.updateMarkers(parsedStores);
             }
+            
+            // 초기 bounds 설정
+            setTimeout(() => {
+              const bounds = window.getMapBounds();
+              if (bounds) setMapBounds(bounds);
+            }, 500);
           })
           .catch(err => {
             console.error('데이터 로딩 실패:', err);
             setError('데이터를 불러오는데 실패했습니다.');
             setLoading(false);
           });
+      }, []);
+
+      // 지도 영역 변경 감지
+      useEffect(() => {
+        window.onBoundsChange = (bounds) => {
+          setMapBounds(bounds);
+        };
       }, []);
 
       useEffect(() => {
@@ -700,7 +746,8 @@
         };
       }, [stores]);
 
-      const filteredStores = stores.filter(store => {
+      // 필터 적용
+      const filteredByFilters = stores.filter(store => {
         if (filters.storeType?.length && !filters.storeType.includes(store.storeType)) return false;
         if (filters.disposal?.length && !filters.disposal.includes(store.disposal)) return false;
         if (filters.styles?.length && !filters.styles.includes(store.styles)) return false;
@@ -713,11 +760,18 @@
         return true;
       });
 
+      // 지도 영역 필터 적용 (목록용)
+      const visibleStores = filteredByFilters.filter(store => {
+        if (!mapBounds) return true;
+        return window.isInBounds(store.lat, store.lng, mapBounds);
+      });
+
+      // 마커는 필터만 적용 (지도 영역 상관없이)
       useEffect(() => {
         if (window.updateMarkers) {
-          window.updateMarkers(filteredStores);
+          window.updateMarkers(filteredByFilters);
         }
-      }, [filteredStores]);
+      }, [filteredByFilters]);
 
       const activeFilterCount = Object.values(filters).flat().length;
 
@@ -784,27 +838,35 @@
             <div className="handle-area" onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}>
               <div className="handle"></div>
               <div className="sheet-title">
-                {isBottomSheetOpen ? `매장 ${filteredStores.length}개` : `목록 열기 (${filteredStores.length}개)`}
+                {isBottomSheetOpen ? `이 지역 매장 ${visibleStores.length}개` : `목록 열기 (${visibleStores.length}개)`}
               </div>
             </div>
 
             {isBottomSheetOpen && (
               <div className="store-list">
-                {filteredStores.map(store => {
-                  const storeTypeInfo = storeTypeLabels[store.storeType] || { emoji: '🏪', label: store.storeType };
-                  const disposalInfo = disposalLabels[store.disposal] || { emoji: '📦', label: store.disposal };
-                  
-                  return (
-                    <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
-                      <h3 style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>🏪 {store.name}</h3>
-                      <p style={{ color: '#4b5563', fontSize: '13px', marginBottom: '10px' }}>📍 {store.address}</p>
-                      <div>
-                        <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
-                        <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
+                {visibleStores.length === 0 ? (
+                  <div className="empty-list">
+                    <span style={{ fontSize: '40px' }}>🔍</span>
+                    <p>이 지역에는 매장이 없어요</p>
+                    <p>지도를 이동해보세요!</p>
+                  </div>
+                ) : (
+                  visibleStores.map(store => {
+                    const storeTypeInfo = storeTypeLabels[store.storeType] || { emoji: '🏪', label: store.storeType };
+                    const disposalInfo = disposalLabels[store.disposal] || { emoji: '📦', label: store.disposal };
+                    
+                    return (
+                      <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
+                        <h3 style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>🏪 {store.name}</h3>
+                        <p style={{ color: '#4b5563', fontSize: '13px', marginBottom: '10px' }}>📍 {store.address}</p>
+                        <div>
+                          <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
+                          <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             )}
           </div>
