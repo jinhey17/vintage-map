@@ -9,46 +9,50 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb"></script>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { 
+      height: 100%; 
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+    }
     
     .header {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      height: 60px;
+      height: 56px;
       background: white;
       border-bottom: 1px solid #e5e7eb;
       padding: 0 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      z-index: 50;
+      z-index: 200;
     }
     
     #map { 
       position: fixed;
-      top: 60px;
+      top: 56px;
       left: 0;
       right: 0;
-      bottom: 80px;
+      bottom: 0;
       z-index: 1;
     }
     
     .my-location-btn {
       position: fixed;
-      bottom: 100px;
+      bottom: 90px;
       right: 16px;
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       background: white;
       border: none;
       border-radius: 50%;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
       cursor: pointer;
-      font-size: 24px;
-      z-index: 50;
+      font-size: 20px;
+      z-index: 150;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -70,57 +74,73 @@
       left: 0;
       right: 0;
       background: white;
-      border-radius: 20px 20px 0 0;
+      border-radius: 16px 16px 0 0;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-      transition: transform 0.3s ease-out;
       z-index: 100;
-      max-height: 70vh;
+      transition: transform 0.3s ease-out;
+      height: 75vh;
+      max-height: calc(100vh - 56px);
     }
-    .bottom-sheet.closed { transform: translateY(calc(100% - 70px)); }
-    .bottom-sheet.open { transform: translateY(0); }
+    .bottom-sheet.closed { 
+      transform: translateY(calc(100% - 64px)); 
+    }
+    .bottom-sheet.open { 
+      transform: translateY(0); 
+    }
+    
+    .handle-area {
+      padding: 12px 16px 8px;
+      cursor: pointer;
+      background: white;
+      border-radius: 16px 16px 0 0;
+    }
     
     .handle {
-      width: 40px;
+      width: 36px;
       height: 4px;
       background: #d1d5db;
       border-radius: 2px;
-      margin: 12px auto;
+      margin: 0 auto 8px;
     }
     
-    .sheet-header {
+    .sheet-title {
       text-align: center;
-      padding-bottom: 12px;
       font-weight: 600;
-      cursor: pointer;
+      font-size: 15px;
+      color: #374151;
     }
     
     .store-list {
       overflow-y: auto;
-      max-height: calc(70vh - 70px);
-      padding-bottom: 20px;
+      height: calc(75vh - 56px);
+      padding-bottom: 100px;
+      -webkit-overflow-scrolling: touch;
     }
     
     .card {
       background: white;
       border-radius: 12px;
-      padding: 16px;
-      margin: 8px 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 14px;
+      margin: 8px 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
       cursor: pointer;
-      transition: transform 0.2s;
+      border: 1px solid #f3f4f6;
     }
-    .card:hover { background: #f9fafb; }
-    .card:active { transform: scale(0.98); }
+    .card:active { 
+      background: #f9fafb; 
+      transform: scale(0.99);
+    }
     
     .filter-chip {
       display: inline-flex;
       align-items: center;
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 20px;
       border: 2px solid #e5e7eb;
       background: white;
       cursor: pointer;
       margin: 4px;
+      font-size: 14px;
       transition: all 0.2s;
     }
     .filter-chip:hover { border-color: #3b82f6; }
@@ -141,8 +161,8 @@
     .modal-content {
       background: white;
       width: 100%;
-      border-radius: 20px 20px 0 0;
-      max-height: 90vh;
+      border-radius: 16px 16px 0 0;
+      max-height: 85vh;
       overflow-y: auto;
     }
     
@@ -152,22 +172,23 @@
       background: white;
       z-index: 2000;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     
     .photo-slide {
-      height: 220px;
+      height: 200px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 64px;
+      font-size: 56px;
     }
     
     .detail-map {
       width: 100%;
-      height: 180px;
+      height: 160px;
       border-radius: 12px;
-      margin: 16px 0;
+      margin: 12px 0;
     }
     
     .tag {
@@ -188,33 +209,39 @@
       margin: 16px 0;
     }
     .btn-group button {
-      padding: 12px;
+      padding: 12px 8px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
       background: white;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
     }
-    .btn-group button:hover { background: #f9fafb; }
+    .btn-group button:active { background: #f9fafb; }
     
-    .loading {
+    .loading-container {
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      bottom: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 200px;
+      background: #f9fafb;
       color: #6b7280;
+      font-size: 15px;
     }
     
     .info-window {
-      padding: 12px 16px;
-      min-width: 200px;
+      padding: 12px 14px;
+      min-width: 180px;
       background: white;
       border-radius: 12px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.25);
     }
     .info-window h4 {
       margin: 0 0 6px 0;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: bold;
       color: #111;
     }
@@ -233,9 +260,6 @@
       cursor: pointer;
       font-size: 13px;
       font-weight: 500;
-    }
-    .info-window button:hover {
-      background: #2563eb;
     }
   </style>
 </head>
@@ -344,7 +368,7 @@
             window.myLocationMarker.setMap(null);
           }
           
-          var markerContent = '<div style="width:20px;height:20px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>';
+          var markerContent = '<div style="width:18px;height:18px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>';
           
           window.myLocationMarker = new kakao.maps.CustomOverlay({
             position: locPosition,
@@ -390,7 +414,6 @@
         const line = lines[i].trim();
         if (!line) continue;
         
-        // 쉼표로 구분
         const values = line.split(',');
         if (values.length < 10) continue;
         
@@ -466,50 +489,50 @@
         <div className="modal" onClick={onClose}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div style={{ position: 'sticky', top: 0, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
-              <button onClick={onClose} style={{ fontSize: '24px', border: 'none', background: 'none', cursor: 'pointer' }}>←</button>
-              <h2 style={{ fontWeight: 'bold', fontSize: '18px', margin: 0 }}>필터</h2>
-              <button onClick={() => setFilters({})} style={{ color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer' }}>초기화</button>
+              <button onClick={onClose} style={{ fontSize: '22px', border: 'none', background: 'none', cursor: 'pointer' }}>←</button>
+              <h2 style={{ fontWeight: 'bold', fontSize: '17px', margin: 0 }}>필터</h2>
+              <button onClick={() => setFilters({})} style={{ color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}>초기화</button>
             </div>
 
             <div style={{ padding: '16px' }}>
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 유형</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏛️ 매장 유형</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.storeType?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeType', key)}>
-                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
+                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
 
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>♻️ 옷 처분</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}>
-                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
+                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
 
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 스타일</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>💡 스타일</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(styleLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('styles', key)}>
-                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
+                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
 
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>👥 성별</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>👥 성별</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(genderLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.gender?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('gender', key)}>
-                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
+                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
 
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏢 편의시설</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏢 편의시설</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {[
                   { value: 'fitting', label: '👕 피팅룸' },
                   { value: 'restroom', label: '🚻 화장실' },
@@ -523,7 +546,7 @@
             </div>
 
             <div style={{ position: 'sticky', bottom: 0, background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px' }}>
-              <button onClick={onClose} style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '14px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '16px' }}>
+              <button onClick={onClose} style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '14px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '15px' }}>
                 적용하기 {activeCount > 0 && `(${activeCount})`}
               </button>
             </div>
@@ -559,54 +582,54 @@
 
       return (
         <div className="detail-page">
-          <div style={{ position: 'sticky', top: 0, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px', display: 'flex', alignItems: 'center', zIndex: 10 }}>
-            <button onClick={onClose} style={{ fontSize: '24px', marginRight: '16px', border: 'none', background: 'none', cursor: 'pointer' }}>←</button>
-            <h1 style={{ fontWeight: 'bold', fontSize: '18px', margin: 0 }}>{store.name}</h1>
+          <div style={{ position: 'sticky', top: 0, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '14px 16px', display: 'flex', alignItems: 'center', zIndex: 10 }}>
+            <button onClick={onClose} style={{ fontSize: '22px', marginRight: '12px', border: 'none', background: 'none', cursor: 'pointer' }}>←</button>
+            <h1 style={{ fontWeight: 'bold', fontSize: '17px', margin: 0 }}>{store.name}</h1>
           </div>
 
           <div className="photo-slide">🏪</div>
 
-          <div style={{ padding: '20px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>{store.name}</h2>
+          <div style={{ padding: '20px 16px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '16px' }}>{store.name}</h2>
 
-            <div style={{ marginBottom: '24px', lineHeight: '1.8' }}>
-              <p style={{ margin: '8px 0' }}>📍 {store.address}</p>
-              <p style={{ margin: '8px 0' }}>🕐 {store.hours}</p>
-              <p style={{ margin: '8px 0' }}>📞 {store.phone}</p>
+            <div style={{ marginBottom: '20px', lineHeight: '1.8', fontSize: '14px' }}>
+              <p style={{ margin: '6px 0' }}>📍 {store.address}</p>
+              <p style={{ margin: '6px 0' }}>🕐 {store.hours}</p>
+              <p style={{ margin: '6px 0' }}>📞 {store.phone}</p>
             </div>
 
-            <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '24px 0' }} />
+            <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '20px 0' }} />
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 유형</h3>
-            <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>🏛️ 매장 유형</h3>
+            <div style={{ marginBottom: '20px' }}>
               <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
             </div>
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분</h3>
-            <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>♻️ 옷 처분</h3>
+            <div style={{ marginBottom: '20px' }}>
               <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
             </div>
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 스타일</h3>
-            <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>💡 스타일</h3>
+            <div style={{ marginBottom: '20px' }}>
               <span className="tag tag-blue">{styleInfo.emoji} {styleInfo.label}</span>
             </div>
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>👥 성별</h3>
-            <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>👥 성별</h3>
+            <div style={{ marginBottom: '20px' }}>
               <span className="tag tag-gray">{genderInfo.emoji} {genderInfo.label}</span>
             </div>
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏢 편의시설</h3>
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>🏢 편의시설</h3>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', fontSize: '14px' }}>
               <span>{store.fitting ? '✅' : '❌'} 피팅룸</span>
               <span>{store.restroom ? '✅' : '❌'} 화장실</span>
               <span>{store.parking ? '✅' : '❌'} 주차</span>
             </div>
 
-            <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '24px 0' }} />
+            <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '20px 0' }} />
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>📍 위치</h3>
+            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>📍 위치</h3>
             <div ref={mapRef} className="detail-map"></div>
 
             <div className="btn-group">
@@ -627,7 +650,7 @@
               </button>
             </div>
             
-            <div style={{ height: '40px' }}></div>
+            <div style={{ height: '50px' }}></div>
           </div>
         </div>
       );
@@ -647,9 +670,7 @@
         fetch(SHEET_URL)
           .then(response => response.text())
           .then(csv => {
-            console.log('CSV 데이터:', csv); // 디버깅용
             const parsedStores = parseCSV(csv);
-            console.log('파싱된 매장:', parsedStores); // 디버깅용
             setStores(parsedStores);
             setLoading(false);
             
@@ -711,9 +732,9 @@
         return (
           <>
             <div className="header">
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
+              <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
             </div>
-            <div className="loading">데이터를 불러오는 중...</div>
+            <div className="loading-container">데이터를 불러오는 중...</div>
           </>
         );
       }
@@ -722,9 +743,9 @@
         return (
           <>
             <div className="header">
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
+              <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
             </div>
-            <div className="loading" style={{ color: '#dc2626' }}>{error}</div>
+            <div className="loading-container" style={{ color: '#dc2626' }}>{error}</div>
           </>
         );
       }
@@ -732,10 +753,10 @@
       return (
         <>
           <div className="header">
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', margin: 0 }} onClick={handleReset}>
+            <h1 style={{ fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', margin: 0 }} onClick={handleReset}>
               🗺️ 빈티지 보물지도
             </h1>
-            <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '14px' }}>
+            <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '13px' }}>
               🎛️ 필터
               {activeFilterCount > 0 && (
                 <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#3b82f6', color: 'white', fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -754,9 +775,9 @@
           </button>
 
           <div className={`bottom-sheet ${isBottomSheetOpen ? 'open' : 'closed'}`}>
-            <div className="sheet-header" onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}>
+            <div className="handle-area" onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}>
               <div className="handle"></div>
-              <div>
+              <div className="sheet-title">
                 {isBottomSheetOpen ? `매장 ${filteredStores.length}개` : `목록 열기 (${filteredStores.length}개)`}
               </div>
             </div>
@@ -769,16 +790,15 @@
                   
                   return (
                     <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
-                      <h3 style={{ fontWeight: 'bold', fontSize: '17px', marginBottom: '6px' }}>🏪 {store.name}</h3>
-                      <p style={{ color: '#4b5563', fontSize: '14px', marginBottom: '10px' }}>📍 {store.address}</p>
-                      <div style={{ marginBottom: '10px' }}>
+                      <h3 style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>🏪 {store.name}</h3>
+                      <p style={{ color: '#4b5563', fontSize: '13px', marginBottom: '10px' }}>📍 {store.address}</p>
+                      <div>
                         <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
                         <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
                       </div>
                     </div>
                   );
                 })}
-                <div style={{ height: '20px' }}></div>
               </div>
             )}
           </div>
