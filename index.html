@@ -9,6 +9,20 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    #map { width: 100%; height: calc(100vh - 64px); margin-top: 64px; }
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+    }
     .bottom-sheet {
       position: fixed;
       bottom: 0;
@@ -29,10 +43,13 @@
       border-radius: 2px;
       margin: 12px auto;
     }
-    .map-container {
-      position: relative;
-      overflow: hidden;
-      transition: height 0.3s ease-out;
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 12px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      cursor: pointer;
     }
     .filter-chip {
       display: inline-flex;
@@ -42,7 +59,6 @@
       border: 2px solid #e5e7eb;
       background: white;
       cursor: pointer;
-      transition: all 0.2s;
       margin: 4px;
     }
     .filter-chip.active {
@@ -50,16 +66,6 @@
       color: white;
       border-color: #3b82f6;
     }
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 16px;
-      margin: 12px 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    .card:active { transform: scale(0.98); }
     .modal {
       position: fixed;
       inset: 0;
@@ -74,11 +80,6 @@
       border-radius: 20px 20px 0 0;
       max-height: 90vh;
       overflow-y: auto;
-      animation: slideUp 0.3s ease-out;
-    }
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
     }
     .detail-page {
       position: fixed;
@@ -86,22 +87,8 @@
       background: white;
       z-index: 2000;
       overflow-y: auto;
-      animation: slideInRight 0.3s ease-out;
     }
-    @keyframes slideInRight {
-      from { transform: translateX(100%); }
-      to { transform: translateX(0); }
-    }
-    .photo-slider {
-      display: flex;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      scrollbar-width: none;
-    }
-    .photo-slider::-webkit-scrollbar { display: none; }
     .photo-slide {
-      flex: 0 0 100%;
-      scroll-snap-align: start;
       height: 250px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       display: flex;
@@ -109,136 +96,64 @@
       justify-content: center;
       font-size: 64px;
     }
-    .loading-map {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
-      flex-direction: column;
-    }
-    .loading-map .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #e5e7eb;
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
   </style>
 </head>
 <body>
   <div id="root"></div>
+  <div id="map"></div>
 
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb"></script>
+  
   <script>
-    // 카카오맵 로드 완료 콜백
-    window.kakaoMapLoaded = false;
-    window.onKakaoMapLoad = function() {
-      window.kakaoMapLoaded = true;
-      if (window.initApp) {
-        window.initApp();
-      }
+    // 페이지 로드 후 지도 초기화
+    window.onload = function() {
+      var container = document.getElementById('map');
+      var options = {
+        center: new kakao.maps.LatLng(37.5400, 126.9700),
+        level: 8
+      };
+      var map = new kakao.maps.Map(container, options);
+      
+      // 전역으로 저장
+      window.kakaoMap = map;
+      window.kakaoMapReady = true;
+      
+      // 마커 데이터
+      var stores = [
+        { id: 1, name: '레트로하우스', address: '서울 마포구 월드컵로 123', lat: 37.5565, lng: 126.9224 },
+        { id: 2, name: '빈티지앤모어', address: '서울 강남구 테헤란로 456', lat: 37.5000, lng: 127.0280 },
+        { id: 3, name: '올드스쿨빈티지', address: '서울 마포구 와우산로 94', lat: 37.5536, lng: 126.9234 },
+        { id: 4, name: '아름다운가게 강남점', address: '서울 강남구 강남대로 789', lat: 37.5172, lng: 127.0473 },
+        { id: 5, name: '보물창고', address: '서울 용산구 이태원로 234', lat: 37.5345, lng: 126.9944 }
+      ];
+      
+      // 마커 생성
+      stores.forEach(function(store) {
+        var marker = new kakao.maps.Marker({
+          position: new kakao.maps.LatLng(store.lat, store.lng),
+          map: map
+        });
+        
+        var infowindow = new kakao.maps.InfoWindow({
+          content: '<div style="padding:10px;font-size:14px;"><strong>' + store.name + '</strong><br>' + store.address + '</div>'
+        });
+        
+        kakao.maps.event.addListener(marker, 'click', function() {
+          infowindow.open(map, marker);
+        });
+      });
     };
   </script>
-  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb&autoload=false"></script>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState } = React;
 
     const sampleStores = [
-      {
-        id: 1,
-        name: '레트로하우스',
-        address: '서울 마포구 월드컵로 123',
-        lat: 37.5565,
-        lng: 126.9224,
-        phone: '02-1234-5678',
-        hours: '12:00 - 21:00 (월요일 휴무)',
-        photos: ['🏪', '👕', '👗'],
-        storeTypes: ['luxury', 'select'],
-        disposal: ['buyback', 'donation_receipt'],
-        styles: ['americana', 'classic'],
-        gender: 'unisex',
-        amenities: { fitting: true, restroom: true, parking: false },
-        rating: 4.5,
-        reviewCount: 23,
-        distance: '도보 5분'
-      },
-      {
-        id: 2,
-        name: '빈티지앤모어',
-        address: '서울 강남구 테헤란로 456',
-        lat: 37.5000,
-        lng: 127.0280,
-        phone: '02-2345-6789',
-        hours: '11:00 - 20:00 (연중무휴)',
-        photos: ['🏬', '👚', '🧥'],
-        storeTypes: ['kilo'],
-        disposal: ['donation_receipt'],
-        styles: ['street', 'japanese'],
-        gender: 'female',
-        amenities: { fitting: true, restroom: false, parking: true },
-        rating: 4.2,
-        reviewCount: 45,
-        distance: '도보 12분'
-      },
-      {
-        id: 3,
-        name: '올드스쿨빈티지',
-        address: '서울 마포구 와우산로 94',
-        lat: 37.5536,
-        lng: 126.9234,
-        phone: '02-3456-7890',
-        hours: '13:00 - 22:00',
-        photos: ['🎪', '👖', '🧢'],
-        storeTypes: ['select'],
-        disposal: ['buyback'],
-        styles: ['americana', 'street'],
-        gender: 'male',
-        amenities: { fitting: true, restroom: true, parking: false },
-        rating: 4.7,
-        reviewCount: 67,
-        distance: '도보 3분'
-      },
-      {
-        id: 4,
-        name: '아름다운가게 강남점',
-        address: '서울 강남구 강남대로 789',
-        lat: 37.5172,
-        lng: 127.0473,
-        phone: '02-4567-8901',
-        hours: '10:00 - 19:00',
-        photos: ['🍀', '👔', '🎒'],
-        storeTypes: ['social'],
-        disposal: ['donation_receipt', 'donation'],
-        styles: ['classic'],
-        gender: 'unisex',
-        amenities: { fitting: false, restroom: true, parking: true },
-        rating: 4.3,
-        reviewCount: 89,
-        distance: '도보 8분'
-      },
-      {
-        id: 5,
-        name: '보물창고',
-        address: '서울 용산구 이태원로 234',
-        lat: 37.5345,
-        lng: 126.9944,
-        phone: '02-5678-9012',
-        hours: '12:00 - 21:00 (화요일 휴무)',
-        photos: ['🎁', '👗', '👠'],
-        storeTypes: ['kilo'],
-        disposal: ['buyback'],
-        styles: ['japanese', 'street'],
-        gender: 'female',
-        amenities: { fitting: true, restroom: false, parking: false },
-        rating: 4.6,
-        reviewCount: 34,
-        distance: '도보 15분'
-      }
+      { id: 1, name: '레트로하우스', address: '서울 마포구 월드컵로 123', phone: '02-1234-5678', hours: '12:00 - 21:00 (월요일 휴무)', storeTypes: ['luxury', 'select'], disposal: ['buyback', 'donation_receipt'], styles: ['americana', 'classic'], gender: 'unisex', amenities: { fitting: true, restroom: true, parking: false }, rating: 4.5, reviewCount: 23, distance: '도보 5분' },
+      { id: 2, name: '빈티지앤모어', address: '서울 강남구 테헤란로 456', phone: '02-2345-6789', hours: '11:00 - 20:00 (연중무휴)', storeTypes: ['kilo'], disposal: ['donation_receipt'], styles: ['street', 'japanese'], gender: 'female', amenities: { fitting: true, restroom: false, parking: true }, rating: 4.2, reviewCount: 45, distance: '도보 12분' },
+      { id: 3, name: '올드스쿨빈티지', address: '서울 마포구 와우산로 94', phone: '02-3456-7890', hours: '13:00 - 22:00', storeTypes: ['select'], disposal: ['buyback'], styles: ['americana', 'street'], gender: 'male', amenities: { fitting: true, restroom: true, parking: false }, rating: 4.7, reviewCount: 67, distance: '도보 3분' },
+      { id: 4, name: '아름다운가게 강남점', address: '서울 강남구 강남대로 789', phone: '02-4567-8901', hours: '10:00 - 19:00', storeTypes: ['social'], disposal: ['donation_receipt', 'donation'], styles: ['classic'], gender: 'unisex', amenities: { fitting: false, restroom: true, parking: true }, rating: 4.3, reviewCount: 89, distance: '도보 8분' },
+      { id: 5, name: '보물창고', address: '서울 용산구 이태원로 234', phone: '02-5678-9012', hours: '12:00 - 21:00 (화요일 휴무)', storeTypes: ['kilo'], disposal: ['buyback'], styles: ['japanese', 'street'], gender: 'female', amenities: { fitting: true, restroom: false, parking: false }, rating: 4.6, reviewCount: 34, distance: '도보 15분' }
     ];
 
     const storeTypeLabels = {
@@ -260,121 +175,6 @@
       street: { emoji: '🛹', label: '스트릿/Y2K' },
       classic: { emoji: '👔', label: '클래식' }
     };
-
-    // 카카오맵 컴포넌트
-    function KakaoMap({ stores, onMarkerClick, height, mapReady }) {
-      const mapRef = useRef(null);
-      const mapInstanceRef = useRef(null);
-      const markersRef = useRef([]);
-      const overlaysRef = useRef([]);
-
-      useEffect(() => {
-        if (!mapReady || !mapRef.current) return;
-
-        // 지도 생성
-        const options = {
-          center: new window.kakao.maps.LatLng(37.5400, 126.9700),
-          level: 8
-        };
-        const map = new window.kakao.maps.Map(mapRef.current, options);
-        mapInstanceRef.current = map;
-
-        // 줌 컨트롤 추가
-        const zoomControl = new window.kakao.maps.ZoomControl();
-        map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
-
-        return () => {
-          markersRef.current.forEach(marker => marker.setMap(null));
-          overlaysRef.current.forEach(overlay => overlay.setMap(null));
-        };
-      }, [mapReady]);
-
-      useEffect(() => {
-        if (!mapReady || !mapInstanceRef.current) return;
-
-        // 기존 마커, 오버레이 제거
-        markersRef.current.forEach(marker => marker.setMap(null));
-        overlaysRef.current.forEach(overlay => overlay.setMap(null));
-        markersRef.current = [];
-        overlaysRef.current = [];
-
-        // 새 마커 생성
-        stores.forEach(store => {
-          const position = new window.kakao.maps.LatLng(store.lat, store.lng);
-          
-          const marker = new window.kakao.maps.Marker({
-            position: position,
-            map: mapInstanceRef.current
-          });
-
-          // 커스텀 오버레이 내용
-          const content = document.createElement('div');
-          content.innerHTML = `
-            <div style="
-              background: white;
-              padding: 12px 16px;
-              border-radius: 12px;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-              min-width: 180px;
-            ">
-              <div style="font-weight: bold; margin-bottom: 4px;">${store.name}</div>
-              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${store.address}</div>
-              <button id="detail-btn-${store.id}" style="
-                background: #3b82f6;
-                color: white;
-                padding: 6px 12px;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                width: 100%;
-                font-weight: 500;
-              ">상세보기</button>
-            </div>
-          `;
-
-          const overlay = new window.kakao.maps.CustomOverlay({
-            content: content,
-            position: position,
-            yAnchor: 1.3
-          });
-
-          // 마커 클릭 시 오버레이 토글
-          window.kakao.maps.event.addListener(marker, 'click', function() {
-            overlaysRef.current.forEach(ov => ov.setMap(null));
-            overlay.setMap(mapInstanceRef.current);
-            
-            setTimeout(() => {
-              const btn = document.getElementById(`detail-btn-${store.id}`);
-              if (btn) {
-                btn.onclick = () => {
-                  overlay.setMap(null);
-                  onMarkerClick(store);
-                };
-              }
-            }, 100);
-          });
-
-          window.kakao.maps.event.addListener(mapInstanceRef.current, 'click', function() {
-            overlay.setMap(null);
-          });
-
-          markersRef.current.push(marker);
-          overlaysRef.current.push(overlay);
-        });
-
-      }, [stores, onMarkerClick, mapReady]);
-
-      if (!mapReady) {
-        return (
-          <div className="loading-map" style={{ height: height }}>
-            <div className="spinner"></div>
-            <p style={{ marginTop: '16px', color: '#6b7280' }}>지도를 불러오는 중...</p>
-          </div>
-        );
-      }
-
-      return <div ref={mapRef} style={{ width: '100%', height: height }} />;
-    }
 
     function FilterModal({ isOpen, onClose, filters, setFilters }) {
       if (!isOpen) return null;
@@ -405,13 +205,8 @@
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 성격</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (
-                  <div
-                    key={key}
-                    className={`filter-chip ${filters.storeTypes?.includes(key) ? 'active' : ''}`}
-                    onClick={() => toggleFilter('storeTypes', key)}
-                  >
-                    <span style={{ marginRight: '8px' }}>{emoji}</span>
-                    {label}
+                  <div key={key} className={`filter-chip ${filters.storeTypes?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeTypes', key)}>
+                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
@@ -419,13 +214,8 @@
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분 가능한 곳</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
-                  <div
-                    key={key}
-                    className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`}
-                    onClick={() => toggleFilter('disposal', key)}
-                  >
-                    <span style={{ marginRight: '8px' }}>{emoji}</span>
-                    {label}
+                  <div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}>
+                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
@@ -433,57 +223,15 @@
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 스타일</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(styleLabels).map(([key, { emoji, label }]) => (
-                  <div
-                    key={key}
-                    className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`}
-                    onClick={() => toggleFilter('styles', key)}
-                  >
-                    <span style={{ marginRight: '8px' }}>{emoji}</span>
-                    {label}
-                  </div>
-                ))}
-              </div>
-
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>👥 성별</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
-                {[
-                  { value: 'female', label: '여성전용' },
-                  { value: 'male', label: '남성전용' },
-                  { value: 'unisex', label: '남녀공용' }
-                ].map(({ value, label }) => (
-                  <div
-                    key={value}
-                    className={`filter-chip ${filters.gender?.includes(value) ? 'active' : ''}`}
-                    onClick={() => toggleFilter('gender', value)}
-                  >
-                    {label}
-                  </div>
-                ))}
-              </div>
-
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏢 편의시설</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
-                {[
-                  { value: 'fitting', label: '피팅룸' },
-                  { value: 'restroom', label: '화장실' },
-                  { value: 'parking', label: '주차가능' }
-                ].map(({ value, label }) => (
-                  <div
-                    key={value}
-                    className={`filter-chip ${filters.amenities?.includes(value) ? 'active' : ''}`}
-                    onClick={() => toggleFilter('amenities', value)}
-                  >
-                    {label}
+                  <div key={key} className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('styles', key)}>
+                    <span style={{ marginRight: '8px' }}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
             </div>
 
             <div style={{ position: 'sticky', bottom: 0, background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px' }}>
-              <button
-                onClick={onClose}
-                style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-              >
+              <button onClick={onClose} style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>
                 적용하기 {activeCount > 0 && `(${activeCount})`}
               </button>
             </div>
@@ -492,25 +240,8 @@
       );
     }
 
-    function DetailPage({ store, onClose, mapReady }) {
+    function DetailPage({ store, onClose }) {
       if (!store) return null;
-      const detailMapRef = useRef(null);
-
-      useEffect(() => {
-        if (!mapReady || !detailMapRef.current) return;
-        
-        const position = new window.kakao.maps.LatLng(store.lat, store.lng);
-        const options = {
-          center: position,
-          level: 3
-        };
-        const map = new window.kakao.maps.Map(detailMapRef.current, options);
-        
-        new window.kakao.maps.Marker({
-          position: position,
-          map: map
-        });
-      }, [store, mapReady]);
 
       return (
         <div className="detail-page">
@@ -519,11 +250,7 @@
             <h1 style={{ fontWeight: 'bold', fontSize: '18px' }}>{store.name}</h1>
           </div>
 
-          <div className="photo-slider">
-            {store.photos.map((photo, i) => (
-              <div key={i} className="photo-slide">{photo}</div>
-            ))}
-          </div>
+          <div className="photo-slide">🏪</div>
 
           <div style={{ padding: '16px' }}>
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{store.name}</h2>
@@ -534,21 +261,12 @@
             </div>
 
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <span style={{ marginRight: '8px' }}>📍</span>
-                <span style={{ color: '#374151' }}>{store.address}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <span style={{ marginRight: '8px' }}>🕐</span>
-                <span style={{ color: '#374151' }}>{store.hours}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                <span style={{ marginRight: '8px' }}>📞</span>
-                <span style={{ color: '#374151' }}>{store.phone}</span>
-              </div>
+              <p>📍 {store.address}</p>
+              <p>🕐 {store.hours}</p>
+              <p>📞 {store.phone}</p>
             </div>
 
-            <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
+            <hr style={{ margin: '24px 0' }} />
 
             <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 성격</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
@@ -568,15 +286,6 @@
               ))}
             </div>
 
-            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 주요 스타일</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
-              {store.styles.map(style => (
-                <span key={style} style={{ padding: '4px 12px', background: '#eff6ff', color: '#1e40af', borderRadius: '9999px', fontSize: '14px' }}>
-                  {styleLabels[style].emoji} {styleLabels[style].label}
-                </span>
-              ))}
-            </div>
-
             <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏢 편의시설</h3>
             <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
               <span>{store.amenities.fitting ? '✅' : '❌'} 피팅룸</span>
@@ -584,60 +293,10 @@
               <span>{store.amenities.parking ? '✅' : '❌'} 주차</span>
             </div>
 
-            <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
-
-            <div ref={detailMapRef} style={{ width: '100%', height: '200px', borderRadius: '12px', background: '#e0f2fe' }} />
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', margin: '24px 0' }}>
-              <button 
-                style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontWeight: '500', background: 'white', cursor: 'pointer' }}
-                onClick={() => window.open(`https://map.kakao.com/link/to/${store.name},${store.lat},${store.lng}`)}
-              >
-                📍 길찾기
-              </button>
-              <button 
-                style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontWeight: '500', background: 'white', cursor: 'pointer' }}
-                onClick={() => window.open(`tel:${store.phone}`)}
-              >
-                📞 전화
-              </button>
-              <button 
-                style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontWeight: '500', background: 'white', cursor: 'pointer' }}
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({ title: store.name, url: window.location.href });
-                  }
-                }}
-              >
-                🔗 공유
-              </button>
-            </div>
-
-            <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontWeight: 'bold' }}>💬 리뷰 {store.reviewCount}개</h3>
-              <button style={{ color: '#3b82f6', fontSize: '14px', border: 'none', background: 'none', cursor: 'pointer' }}>전체보기 &gt;</button>
-            </div>
-
-            <div style={{ marginBottom: '32px' }}>
-              <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: '600', marginRight: '8px' }}>👤 사용자A</span>
-                  <span style={{ color: '#eab308' }}>⭐⭐⭐⭐⭐</span>
-                </div>
-                <p style={{ color: '#374151', marginBottom: '4px' }}>"매입 가격 합리적이고 친절해요!"</p>
-                <p style={{ color: '#9ca3af', fontSize: '14px' }}>2024.12.20</p>
-              </div>
-
-              <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: '600', marginRight: '8px' }}>👤 사용자B</span>
-                  <span style={{ color: '#eab308' }}>⭐⭐⭐⭐</span>
-                </div>
-                <p style={{ color: '#374151', marginBottom: '4px' }}>"보물찾는 재미가 있어요!"</p>
-                <p style={{ color: '#9ca3af', fontSize: '14px' }}>2024.12.18</p>
-              </div>
+              <button style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer' }}>📍 길찾기</button>
+              <button style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer' }} onClick={() => window.open(`tel:${store.phone}`)}>📞 전화</button>
+              <button style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer' }}>🔗 공유</button>
             </div>
           </div>
         </div>
@@ -649,49 +308,23 @@
       const [isFilterOpen, setIsFilterOpen] = useState(false);
       const [filters, setFilters] = useState({});
       const [selectedStore, setSelectedStore] = useState(null);
-      const [mapReady, setMapReady] = useState(false);
-
-      useEffect(() => {
-        // 카카오맵 로드
-        if (window.kakao && window.kakao.maps) {
-          window.kakao.maps.load(() => {
-            setMapReady(true);
-          });
-        }
-      }, []);
 
       const filteredStores = sampleStores.filter(store => {
         if (filters.storeTypes?.length && !filters.storeTypes.some(f => store.storeTypes.includes(f))) return false;
         if (filters.disposal?.length && !filters.disposal.some(f => store.disposal.includes(f))) return false;
         if (filters.styles?.length && !filters.styles.some(f => store.styles.includes(f))) return false;
-        if (filters.gender?.length && !filters.gender.includes(store.gender)) return false;
-        if (filters.amenities?.length && !filters.amenities.every(f => store.amenities[f])) return false;
         return true;
       });
 
       const activeFilterCount = Object.values(filters).flat().length;
 
-      const handleReset = () => {
-        setIsBottomSheetOpen(false);
-        setFilters({});
-        setSelectedStore(null);
-      };
-
-      const mapHeight = isBottomSheetOpen ? 'calc(33vh - 64px)' : 'calc(100vh - 64px)';
-
       return (
         <>
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 50 }}>
-            <h1 
-              style={{ fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', margin: 0 }}
-              onClick={handleReset}
-            >
+          <div className="header">
+            <h1 style={{ fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', margin: 0 }} onClick={() => { setIsBottomSheetOpen(false); setFilters({}); setSelectedStore(null); }}>
               🗺️ 빈티지 보물지도
             </h1>
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              style={{ position: 'relative', padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer' }}
-            >
+            <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer' }}>
               🎛️ 필터
               {activeFilterCount > 0 && (
                 <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#3b82f6', color: 'white', fontSize: '12px', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -701,23 +334,8 @@
             </button>
           </div>
 
-          <div className="map-container" style={{ paddingTop: '64px', height: isBottomSheetOpen ? '33vh' : '100vh' }}>
-            <KakaoMap 
-              stores={filteredStores}
-              onMarkerClick={(store) => {
-                setSelectedStore(store);
-                setIsBottomSheetOpen(false);
-              }}
-              height={mapHeight}
-              mapReady={mapReady}
-            />
-          </div>
-
           <div className={`bottom-sheet ${isBottomSheetOpen ? 'open' : 'closed'}`}>
-            <div
-              style={{ cursor: 'pointer' }}
-              onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}
-            >
+            <div style={{ cursor: 'pointer' }} onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}>
               <div className="handle"></div>
               {!isBottomSheetOpen && (
                 <div style={{ textAlign: 'center', paddingBottom: '16px', fontWeight: '600' }}>
@@ -733,11 +351,7 @@
                 </div>
                 
                 {filteredStores.map(store => (
-                  <div
-                    key={store.id}
-                    className="card"
-                    onClick={() => setSelectedStore(store)}
-                  >
+                  <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
                     <h3 style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '8px' }}>🏪 {store.name}</h3>
                     <p style={{ color: '#4b5563', fontSize: '14px', marginBottom: '8px' }}>📍 {store.address} · {store.distance}</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
@@ -763,20 +377,9 @@
             )}
           </div>
 
-          <FilterModal
-            isOpen={isFilterOpen}
-            onClose={() => setIsFilterOpen(false)}
-            filters={filters}
-            setFilters={setFilters}
-          />
-
-          {selectedStore && (
-            <DetailPage
-              store={selectedStore}
-              onClose={() => setSelectedStore(null)}
-              mapReady={mapReady}
-            />
-          )}
+          <FilterModal isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} filters={filters} setFilters={setFilters} />
+          
+          {selectedStore && <DetailPage store={selectedStore} onClose={() => setSelectedStore(null)} />}
         </>
       );
     }
