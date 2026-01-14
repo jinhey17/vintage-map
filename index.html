@@ -406,6 +406,12 @@
 
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
 
+    // 따옴표 제거 함수
+    function cleanValue(val) {
+      if (!val) return '';
+      return val.trim().replace(/^["']|["']$/g, '').replace(/"/g, '');
+    }
+
     function parseCSV(csv) {
       const lines = csv.split('\n');
       const stores = [];
@@ -419,19 +425,19 @@
         
         const store = {
           id: parseInt(values[0]) || i,
-          name: values[1]?.trim() || '',
-          address: values[2]?.trim() || '',
+          name: cleanValue(values[1]),
+          address: cleanValue(values[2]),
           lat: parseFloat(values[3]) || 0,
           lng: parseFloat(values[4]) || 0,
-          phone: values[5]?.trim() || '',
-          hours: values[6]?.trim() || '',
-          storeType: values[7]?.trim() || '',
-          disposal: values[8]?.trim() || '',
-          styles: values[9]?.trim() || '',
-          gender: values[10]?.trim() || '',
-          fitting: values[11]?.trim()?.toUpperCase() === 'TRUE',
-          restroom: values[12]?.trim()?.toUpperCase() === 'TRUE',
-          parking: values[13]?.trim()?.toUpperCase() === 'TRUE',
+          phone: cleanValue(values[5]),
+          hours: cleanValue(values[6]),
+          storeType: cleanValue(values[7]),
+          disposal: cleanValue(values[8]),
+          styles: cleanValue(values[9]),
+          gender: cleanValue(values[10]),
+          fitting: cleanValue(values[11]).toUpperCase() === 'TRUE',
+          restroom: cleanValue(values[12]).toUpperCase() === 'TRUE',
+          parking: cleanValue(values[13]).toUpperCase() === 'TRUE',
         };
         
         if (store.name && store.lat && store.lng) {
@@ -757,7 +763,7 @@
               🗺️ 빈티지 보물지도
             </h1>
             <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '13px' }}>
-              🎛️ 필터
+              🔍 필터
               {activeFilterCount > 0 && (
                 <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#3b82f6', color: 'white', fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {activeFilterCount}
