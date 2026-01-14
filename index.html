@@ -205,7 +205,6 @@
       color: #6b7280;
     }
     
-    /* 마커 팝업 스타일 - 흰색 배경 추가 */
     .info-window {
       padding: 12px 16px;
       min-width: 200px;
@@ -245,13 +244,11 @@
   <div id="map"></div>
 
   <script>
-    // 전역 변수
     window.kakaoMap = null;
     window.markers = [];
     window.currentOverlay = null;
     window.myLocationMarker = null;
     
-    // 지도 초기화 함수
     window.initMap = function() {
       if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') {
         document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fee2e2;color:#dc2626;">카카오맵 로딩 실패</div>';
@@ -277,7 +274,6 @@
       });
     };
     
-    // 마커 업데이트 함수
     window.updateMarkers = function(stores) {
       window.markers.forEach(function(item) {
         item.marker.setMap(null);
@@ -328,7 +324,6 @@
       }
     };
     
-    // 내 위치로 이동
     window.goToMyLocation = function(callback) {
       if (!navigator.geolocation) {
         alert('이 브라우저에서는 위치 서비스를 지원하지 않습니다.');
@@ -342,16 +337,13 @@
           var lng = position.coords.longitude;
           var locPosition = new kakao.maps.LatLng(lat, lng);
           
-          // 지도 이동
           window.kakaoMap.setCenter(locPosition);
           window.kakaoMap.setLevel(4);
           
-          // 기존 내 위치 마커 제거
           if (window.myLocationMarker) {
             window.myLocationMarker.setMap(null);
           }
           
-          // 내 위치 마커 (파란 점)
           var markerContent = '<div style="width:20px;height:20px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>';
           
           window.myLocationMarker = new kakao.maps.CustomOverlay({
@@ -398,24 +390,25 @@
         const line = lines[i].trim();
         if (!line) continue;
         
-        const values = line.split('\t');
+        // 쉼표로 구분
+        const values = line.split(',');
         if (values.length < 10) continue;
         
         const store = {
           id: parseInt(values[0]) || i,
-          name: values[1] || '',
-          address: values[2] || '',
+          name: values[1]?.trim() || '',
+          address: values[2]?.trim() || '',
           lat: parseFloat(values[3]) || 0,
           lng: parseFloat(values[4]) || 0,
-          phone: values[5] || '',
-          hours: values[6] || '',
-          storeType: values[7] || '',
-          disposal: values[8] || '',
-          styles: values[9] || '',
-          gender: values[10] || '',
-          fitting: values[11]?.toUpperCase() === 'TRUE',
-          restroom: values[12]?.toUpperCase() === 'TRUE',
-          parking: values[13]?.toUpperCase() === 'TRUE',
+          phone: values[5]?.trim() || '',
+          hours: values[6]?.trim() || '',
+          storeType: values[7]?.trim() || '',
+          disposal: values[8]?.trim() || '',
+          styles: values[9]?.trim() || '',
+          gender: values[10]?.trim() || '',
+          fitting: values[11]?.trim()?.toUpperCase() === 'TRUE',
+          restroom: values[12]?.trim()?.toUpperCase() === 'TRUE',
+          parking: values[13]?.trim()?.toUpperCase() === 'TRUE',
         };
         
         if (store.name && store.lat && store.lng) {
@@ -654,7 +647,9 @@
         fetch(SHEET_URL)
           .then(response => response.text())
           .then(csv => {
+            console.log('CSV 데이터:', csv); // 디버깅용
             const parsedStores = parseCSV(csv);
+            console.log('파싱된 매장:', parsedStores); // 디버깅용
             setStores(parsedStores);
             setLoading(false);
             
@@ -750,7 +745,6 @@
             </button>
           </div>
 
-          {/* 내 위치 버튼 */}
           <button 
             className={`my-location-btn ${locating ? 'loading' : ''}`}
             onClick={handleMyLocation}
