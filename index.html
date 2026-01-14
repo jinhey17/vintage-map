@@ -7,7 +7,6 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb"></script>
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .bottom-sheet {
@@ -110,24 +109,41 @@
       justify-content: center;
       font-size: 64px;
     }
-    .info-popup {
-      position: absolute;
-      background: white;
-      padding: 12px 16px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      min-width: 180px;
-      z-index: 50;
-      animation: popIn 0.2s ease-out;
+    .loading-map {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
+      flex-direction: column;
     }
-    @keyframes popIn {
-      from { transform: scale(0.8); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+    .loading-map .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
   <div id="root"></div>
+
+  <script>
+    // 카카오맵 로드 완료 콜백
+    window.kakaoMapLoaded = false;
+    window.onKakaoMapLoad = function() {
+      window.kakaoMapLoaded = true;
+      if (window.initApp) {
+        window.initApp();
+      }
+    };
+  </script>
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb&autoload=false"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -246,14 +262,14 @@
     };
 
     // 카카오맵 컴포넌트
-    function KakaoMap({ stores, onMarkerClick, height }) {
+    function KakaoMap({ stores, onMarkerClick, height, mapReady }) {
       const mapRef = useRef(null);
       const mapInstanceRef = useRef(null);
       const markersRef = useRef([]);
       const overlaysRef = useRef([]);
 
       useEffect(() => {
-        if (!window.kakao || !window.kakao.maps || !mapRef.current) return;
+        if (!mapReady || !mapRef.current) return;
 
         // 지도 생성
         const options = {
@@ -271,10 +287,10 @@
           markersRef.current.forEach(marker => marker.setMap(null));
           overlaysRef.current.forEach(overlay => overlay.setMap(null));
         };
-      }, []);
+      }, [mapReady]);
 
       useEffect(() => {
-        if (!mapInstanceRef.current) return;
+        if (!mapReady || !mapInstanceRef.current) return;
 
         // 기존 마커, 오버레이 제거
         markersRef.current.forEach(marker => marker.setMap(null));
@@ -324,11 +340,9 @@
 
           // 마커 클릭 시 오버레이 토글
           window.kakao.maps.event.addListener(marker, 'click', function() {
-            // 다른 오버레이 닫기
             overlaysRef.current.forEach(ov => ov.setMap(null));
             overlay.setMap(mapInstanceRef.current);
             
-            // 상세보기 버튼 이벤트
             setTimeout(() => {
               const btn = document.getElementById(`detail-btn-${store.id}`);
               if (btn) {
@@ -340,7 +354,6 @@
             }, 100);
           });
 
-          // 지도 클릭 시 오버레이 닫기
           window.kakao.maps.event.addListener(mapInstanceRef.current, 'click', function() {
             overlay.setMap(null);
           });
@@ -349,7 +362,16 @@
           overlaysRef.current.push(overlay);
         });
 
-      }, [stores, onMarkerClick]);
+      }, [stores, onMarkerClick, mapReady]);
+
+      if (!mapReady) {
+        return (
+          <div className="loading-map" style={{ height: height }}>
+            <div className="spinner"></div>
+            <p style={{ marginTop: '16px', color: '#6b7280' }}>지도를 불러오는 중...</p>
+          </div>
+        );
+      }
 
       return <div ref={mapRef} style={{ width: '100%', height: height }} />;
     }
@@ -373,57 +395,57 @@
       return (
         <div className="modal" onClick={onClose}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <button onClick={onClose} className="text-2xl">←</button>
-              <h2 className="text-lg font-bold">필터</h2>
-              <button onClick={() => setFilters({})} className="text-blue-500">초기화</button>
+            <div style={{ position: 'sticky', top: 0, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button onClick={onClose} style={{ fontSize: '24px', border: 'none', background: 'none', cursor: 'pointer' }}>←</button>
+              <h2 style={{ fontWeight: 'bold', fontSize: '18px' }}>필터</h2>
+              <button onClick={() => setFilters({})} style={{ color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer' }}>초기화</button>
             </div>
 
-            <div className="p-4">
-              <h3 className="font-bold mb-3">🏛️ 매장 성격</h3>
-              <div className="flex flex-wrap mb-6">
+            <div style={{ padding: '16px' }}>
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 성격</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (
                   <div
                     key={key}
                     className={`filter-chip ${filters.storeTypes?.includes(key) ? 'active' : ''}`}
                     onClick={() => toggleFilter('storeTypes', key)}
                   >
-                    <span className="mr-2">{emoji}</span>
+                    <span style={{ marginRight: '8px' }}>{emoji}</span>
                     {label}
                   </div>
                 ))}
               </div>
 
-              <h3 className="font-bold mb-3">♻️ 옷 처분 가능한 곳</h3>
-              <div className="flex flex-wrap mb-6">
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분 가능한 곳</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
                   <div
                     key={key}
                     className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`}
                     onClick={() => toggleFilter('disposal', key)}
                   >
-                    <span className="mr-2">{emoji}</span>
+                    <span style={{ marginRight: '8px' }}>{emoji}</span>
                     {label}
                   </div>
                 ))}
               </div>
 
-              <h3 className="font-bold mb-3">💡 스타일</h3>
-              <div className="flex flex-wrap mb-6">
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 스타일</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {Object.entries(styleLabels).map(([key, { emoji, label }]) => (
                   <div
                     key={key}
                     className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`}
                     onClick={() => toggleFilter('styles', key)}
                   >
-                    <span className="mr-2">{emoji}</span>
+                    <span style={{ marginRight: '8px' }}>{emoji}</span>
                     {label}
                   </div>
                 ))}
               </div>
 
-              <h3 className="font-bold mb-3">👥 성별</h3>
-              <div className="flex flex-wrap mb-6">
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>👥 성별</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {[
                   { value: 'female', label: '여성전용' },
                   { value: 'male', label: '남성전용' },
@@ -439,8 +461,8 @@
                 ))}
               </div>
 
-              <h3 className="font-bold mb-3">🏢 편의시설</h3>
-              <div className="flex flex-wrap mb-6">
+              <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏢 편의시설</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '24px' }}>
                 {[
                   { value: 'fitting', label: '피팅룸' },
                   { value: 'restroom', label: '화장실' },
@@ -457,10 +479,10 @@
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white border-t p-4">
+            <div style={{ position: 'sticky', bottom: 0, background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px' }}>
               <button
                 onClick={onClose}
-                className="w-full bg-blue-500 text-white py-3 rounded-lg font-bold"
+                style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
               >
                 적용하기 {activeCount > 0 && `(${activeCount})`}
               </button>
@@ -470,12 +492,12 @@
       );
     }
 
-    function DetailPage({ store, onClose }) {
+    function DetailPage({ store, onClose, mapReady }) {
       if (!store) return null;
       const detailMapRef = useRef(null);
 
       useEffect(() => {
-        if (!window.kakao || !window.kakao.maps || !detailMapRef.current) return;
+        if (!mapReady || !detailMapRef.current) return;
         
         const position = new window.kakao.maps.LatLng(store.lat, store.lng);
         const options = {
@@ -488,13 +510,13 @@
           position: position,
           map: map
         });
-      }, [store]);
+      }, [store, mapReady]);
 
       return (
         <div className="detail-page">
-          <div className="sticky top-0 bg-white border-b p-4 flex items-center z-10">
-            <button onClick={onClose} className="text-2xl mr-4">←</button>
-            <h1 className="text-lg font-bold">{store.name}</h1>
+          <div style={{ position: 'sticky', top: 0, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px', display: 'flex', alignItems: 'center', zIndex: 10 }}>
+            <button onClick={onClose} style={{ fontSize: '24px', marginRight: '16px', border: 'none', background: 'none', cursor: 'pointer' }}>←</button>
+            <h1 style={{ fontWeight: 'bold', fontSize: '18px' }}>{store.name}</h1>
           </div>
 
           <div className="photo-slider">
@@ -503,84 +525,84 @@
             ))}
           </div>
 
-          <div className="p-4">
-            <h2 className="text-2xl font-bold mb-2">{store.name}</h2>
-            <div className="flex items-center mb-4">
-              <span className="text-yellow-500 mr-1">⭐</span>
-              <span className="font-semibold mr-1">{store.rating}</span>
-              <span className="text-gray-500">(리뷰 {store.reviewCount}개)</span>
+          <div style={{ padding: '16px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{store.name}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+              <span style={{ color: '#eab308', marginRight: '4px' }}>⭐</span>
+              <span style={{ fontWeight: '600', marginRight: '4px' }}>{store.rating}</span>
+              <span style={{ color: '#6b7280' }}>(리뷰 {store.reviewCount}개)</span>
             </div>
 
-            <div className="space-y-2 mb-6">
-              <div className="flex items-start">
-                <span className="mr-2">📍</span>
-                <span className="text-gray-700">{store.address}</span>
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <span style={{ marginRight: '8px' }}>📍</span>
+                <span style={{ color: '#374151' }}>{store.address}</span>
               </div>
-              <div className="flex items-start">
-                <span className="mr-2">🕐</span>
-                <span className="text-gray-700">{store.hours}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <span style={{ marginRight: '8px' }}>🕐</span>
+                <span style={{ color: '#374151' }}>{store.hours}</span>
               </div>
-              <div className="flex items-start">
-                <span className="mr-2">📞</span>
-                <span className="text-gray-700">{store.phone}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                <span style={{ marginRight: '8px' }}>📞</span>
+                <span style={{ color: '#374151' }}>{store.phone}</span>
               </div>
             </div>
 
-            <hr className="my-6" />
+            <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
-            <h3 className="font-bold mb-3">🏛️ 매장 성격</h3>
-            <div className="flex flex-wrap gap-2 mb-6">
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏛️ 매장 성격</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
               {store.storeTypes.map(type => (
-                <span key={type} className="px-3 py-1 bg-gray-100 rounded-full text-sm">
+                <span key={type} style={{ padding: '4px 12px', background: '#f3f4f6', borderRadius: '9999px', fontSize: '14px' }}>
                   {storeTypeLabels[type].emoji} {storeTypeLabels[type].label}
                 </span>
               ))}
             </div>
 
-            <h3 className="font-bold mb-3">♻️ 옷 처분하기</h3>
-            <div className="flex flex-wrap gap-2 mb-6">
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>♻️ 옷 처분하기</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
               {store.disposal.map(d => (
-                <span key={d} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">
+                <span key={d} style={{ padding: '4px 12px', background: '#f0fdf4', color: '#15803d', borderRadius: '9999px', fontSize: '14px' }}>
                   {disposalLabels[d].emoji} {disposalLabels[d].label}
                 </span>
               ))}
             </div>
 
-            <h3 className="font-bold mb-3">💡 주요 스타일</h3>
-            <div className="flex flex-wrap gap-2 mb-6">
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>💡 주요 스타일</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
               {store.styles.map(style => (
-                <span key={style} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+                <span key={style} style={{ padding: '4px 12px', background: '#eff6ff', color: '#1e40af', borderRadius: '9999px', fontSize: '14px' }}>
                   {styleLabels[style].emoji} {styleLabels[style].label}
                 </span>
               ))}
             </div>
 
-            <h3 className="font-bold mb-3">🏢 편의시설</h3>
-            <div className="flex gap-4 mb-6">
+            <h3 style={{ fontWeight: 'bold', marginBottom: '12px' }}>🏢 편의시설</h3>
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
               <span>{store.amenities.fitting ? '✅' : '❌'} 피팅룸</span>
               <span>{store.amenities.restroom ? '✅' : '❌'} 화장실</span>
               <span>{store.amenities.parking ? '✅' : '❌'} 주차</span>
             </div>
 
-            <hr className="my-6" />
+            <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
-            <div ref={detailMapRef} style={{ width: '100%', height: '200px', borderRadius: '12px' }} />
+            <div ref={detailMapRef} style={{ width: '100%', height: '200px', borderRadius: '12px', background: '#e0f2fe' }} />
 
-            <div className="grid grid-cols-3 gap-2 my-6">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', margin: '24px 0' }}>
               <button 
-                className="py-3 border rounded-lg font-medium"
+                style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontWeight: '500', background: 'white', cursor: 'pointer' }}
                 onClick={() => window.open(`https://map.kakao.com/link/to/${store.name},${store.lat},${store.lng}`)}
               >
                 📍 길찾기
               </button>
               <button 
-                className="py-3 border rounded-lg font-medium"
+                style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontWeight: '500', background: 'white', cursor: 'pointer' }}
                 onClick={() => window.open(`tel:${store.phone}`)}
               >
                 📞 전화
               </button>
               <button 
-                className="py-3 border rounded-lg font-medium"
+                style={{ padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontWeight: '500', background: 'white', cursor: 'pointer' }}
                 onClick={() => {
                   if (navigator.share) {
                     navigator.share({ title: store.name, url: window.location.href });
@@ -591,30 +613,30 @@
               </button>
             </div>
 
-            <hr className="my-6" />
+            <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
 
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold">💬 리뷰 {store.reviewCount}개</h3>
-              <button className="text-blue-500 text-sm">전체보기 &gt;</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontWeight: 'bold' }}>💬 리뷰 {store.reviewCount}개</h3>
+              <button style={{ color: '#3b82f6', fontSize: '14px', border: 'none', background: 'none', cursor: 'pointer' }}>전체보기 &gt;</button>
             </div>
 
-            <div className="space-y-4 mb-8">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center mb-2">
-                  <span className="font-semibold mr-2">👤 사용자A</span>
-                  <span className="text-yellow-500">⭐⭐⭐⭐⭐</span>
+            <div style={{ marginBottom: '32px' }}>
+              <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: '600', marginRight: '8px' }}>👤 사용자A</span>
+                  <span style={{ color: '#eab308' }}>⭐⭐⭐⭐⭐</span>
                 </div>
-                <p className="text-gray-700 mb-1">"매입 가격 합리적이고 친절해요!"</p>
-                <p className="text-gray-400 text-sm">2024.12.20</p>
+                <p style={{ color: '#374151', marginBottom: '4px' }}>"매입 가격 합리적이고 친절해요!"</p>
+                <p style={{ color: '#9ca3af', fontSize: '14px' }}>2024.12.20</p>
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center mb-2">
-                  <span className="font-semibold mr-2">👤 사용자B</span>
-                  <span className="text-yellow-500">⭐⭐⭐⭐</span>
+              <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: '600', marginRight: '8px' }}>👤 사용자B</span>
+                  <span style={{ color: '#eab308' }}>⭐⭐⭐⭐</span>
                 </div>
-                <p className="text-gray-700 mb-1">"보물찾는 재미가 있어요!"</p>
-                <p className="text-gray-400 text-sm">2024.12.18</p>
+                <p style={{ color: '#374151', marginBottom: '4px' }}>"보물찾는 재미가 있어요!"</p>
+                <p style={{ color: '#9ca3af', fontSize: '14px' }}>2024.12.18</p>
               </div>
             </div>
           </div>
@@ -627,6 +649,16 @@
       const [isFilterOpen, setIsFilterOpen] = useState(false);
       const [filters, setFilters] = useState({});
       const [selectedStore, setSelectedStore] = useState(null);
+      const [mapReady, setMapReady] = useState(false);
+
+      useEffect(() => {
+        // 카카오맵 로드
+        if (window.kakao && window.kakao.maps) {
+          window.kakao.maps.load(() => {
+            setMapReady(true);
+          });
+        }
+      }, []);
 
       const filteredStores = sampleStores.filter(store => {
         if (filters.storeTypes?.length && !filters.storeTypes.some(f => store.storeTypes.includes(f))) return false;
@@ -649,27 +681,27 @@
 
       return (
         <>
-          <div className="fixed top-0 left-0 right-0 bg-white border-b p-4 flex justify-between items-center z-50">
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 50 }}>
             <h1 
-              className="text-xl font-bold cursor-pointer hover:text-blue-500 transition-colors"
+              style={{ fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', margin: 0 }}
               onClick={handleReset}
             >
               🗺️ 빈티지 보물지도
             </h1>
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="relative px-4 py-2 border rounded-lg hover:bg-gray-50"
+              style={{ position: 'relative', padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer' }}
             >
               🎛️ 필터
               {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#3b82f6', color: 'white', fontSize: '12px', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {activeFilterCount}
                 </span>
               )}
             </button>
           </div>
 
-          <div className="map-container pt-16" style={{ height: isBottomSheetOpen ? '33vh' : '100vh' }}>
+          <div className="map-container" style={{ paddingTop: '64px', height: isBottomSheetOpen ? '33vh' : '100vh' }}>
             <KakaoMap 
               stores={filteredStores}
               onMarkerClick={(store) => {
@@ -677,25 +709,26 @@
                 setIsBottomSheetOpen(false);
               }}
               height={mapHeight}
+              mapReady={mapReady}
             />
           </div>
 
           <div className={`bottom-sheet ${isBottomSheetOpen ? 'open' : 'closed'}`}>
             <div
-              className="cursor-pointer"
+              style={{ cursor: 'pointer' }}
               onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}
             >
               <div className="handle"></div>
               {!isBottomSheetOpen && (
-                <div className="text-center pb-4 font-semibold">
+                <div style={{ textAlign: 'center', paddingBottom: '16px', fontWeight: '600' }}>
                   목록 열기 ({filteredStores.length}개)
                 </div>
               )}
             </div>
 
             {isBottomSheetOpen && (
-              <div className="overflow-y-auto" style={{ maxHeight: 'calc(70vh - 60px)' }}>
-                <div className="text-center py-2 font-semibold border-b">
+              <div style={{ overflowY: 'auto', maxHeight: 'calc(70vh - 60px)' }}>
+                <div style={{ textAlign: 'center', padding: '8px 0', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>
                   매장 {filteredStores.length}개
                 </div>
                 
@@ -705,24 +738,24 @@
                     className="card"
                     onClick={() => setSelectedStore(store)}
                   >
-                    <h3 className="font-bold text-lg mb-2">🏪 {store.name}</h3>
-                    <p className="text-gray-600 text-sm mb-2">📍 {store.address} · {store.distance}</p>
-                    <div className="flex flex-wrap gap-1 mb-2">
+                    <h3 style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '8px' }}>🏪 {store.name}</h3>
+                    <p style={{ color: '#4b5563', fontSize: '14px', marginBottom: '8px' }}>📍 {store.address} · {store.distance}</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
                       {store.storeTypes.map(type => (
-                        <span key={type} className="text-xs px-2 py-1 bg-gray-100 rounded">
+                        <span key={type} style={{ fontSize: '12px', padding: '2px 8px', background: '#f3f4f6', borderRadius: '4px' }}>
                           {storeTypeLabels[type].emoji} {storeTypeLabels[type].label}
                         </span>
                       ))}
                       {store.disposal.slice(0, 2).map(d => (
-                        <span key={d} className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded">
+                        <span key={d} style={{ fontSize: '12px', padding: '2px 8px', background: '#f0fdf4', color: '#15803d', borderRadius: '4px' }}>
                           {disposalLabels[d].emoji} {disposalLabels[d].label}
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-center">
-                      <span className="text-yellow-500 mr-1">⭐</span>
-                      <span className="font-semibold mr-1">{store.rating}</span>
-                      <span className="text-gray-500 text-sm">({store.reviewCount})</span>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span style={{ color: '#eab308', marginRight: '4px' }}>⭐</span>
+                      <span style={{ fontWeight: '600', marginRight: '4px' }}>{store.rating}</span>
+                      <span style={{ color: '#6b7280', fontSize: '14px' }}>({store.reviewCount})</span>
                     </div>
                   </div>
                 ))}
@@ -741,6 +774,7 @@
             <DetailPage
               store={selectedStore}
               onClose={() => setSelectedStore(null)}
+              mapReady={mapReady}
             />
           )}
         </>
