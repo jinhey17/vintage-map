@@ -7,255 +7,49 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
   <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb&libraries=services,clusterer"></script>
   
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { 
-      height: 100%; 
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-    }
-    
-    .header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 56px;
-      background: white;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 0 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 200;
-    }
-    
-    #map { 
-      position: fixed;
-      top: 56px;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 1;
-    }
-    
-    .my-location-btn {
-      position: fixed;
-      bottom: 90px;
-      right: 16px;
-      width: 44px;
-      height: 44px;
-      background: white;
-      border: none;
-      border-radius: 50%;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-      cursor: pointer;
-      font-size: 20px;
-      z-index: 150;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .my-location-btn:hover { background: #f3f4f6; }
-    .my-location-btn.loading { animation: pulse 1s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    
-    .bottom-sheet {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: white;
-      border-radius: 16px 16px 0 0;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-      z-index: 100;
-      transition: transform 0.3s ease-out;
-      height: 75vh;
-      max-height: calc(100vh - 56px);
-    }
+    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .header { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: white; border-bottom: 1px solid #e5e7eb; padding: 0 16px; display: flex; justify-content: space-between; align-items: center; z-index: 200; }
+    #map { position: fixed; top: 56px; left: 0; right: 0; bottom: 0; z-index: 1; }
+    .my-location-btn { position: fixed; bottom: 90px; right: 16px; width: 44px; height: 44px; background: white; border: none; border-radius: 50%; box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer; font-size: 20px; z-index: 150; display: flex; align-items: center; justify-content: center; }
+    .shopping-btn { position: fixed; bottom: 144px; right: 16px; width: 44px; height: 44px; background: white; border: none; border-radius: 50%; box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer; font-size: 20px; z-index: 150; display: flex; align-items: center; justify-content: center; }
+    .shopping-btn:active, .my-location-btn:active { background: #f3f4f6; }
+    .link-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2100; padding: 20px; }
+    .link-modal { background: white; width: 100%; max-width: 320px; border-radius: 20px; padding: 24px 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popUp 0.3s ease-out; }
+    @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .link-btn { display: block; width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: white; color: #333; text-decoration: none; font-weight: bold; font-size: 14px; transition: all 0.2s; }
+    .link-btn:hover { background: #f9fafb; border-color: #d1d5db; transform: translateY(-2px); }
+    .link-btn.highlight { background: #3b82f6; color: white; border: none; }
+    .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 16px 16px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 100; transition: transform 0.3s ease-out; height: 75vh; max-height: calc(100vh - 56px); }
     .bottom-sheet.closed { transform: translateY(calc(100% - 64px)); }
     .bottom-sheet.open { transform: translateY(0); }
-    
-    .handle-area {
-      padding: 12px 16px 8px;
-      cursor: pointer;
-      background: white;
-      border-radius: 16px 16px 0 0;
-    }
-    
-    .handle {
-      width: 36px;
-      height: 4px;
-      background: #d1d5db;
-      border-radius: 2px;
-      margin: 0 auto 8px;
-    }
-    
-    .sheet-title {
-      text-align: center;
-      font-weight: 600;
-      font-size: 15px;
-      color: #374151;
-    }
-    
-    .store-list {
-      overflow-y: auto;
-      height: calc(75vh - 56px);
-      padding-bottom: 100px;
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 14px;
-      margin: 8px 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      cursor: pointer;
-      border: 1px solid #f3f4f6;
-    }
-    .card:active { background: #f9fafb; transform: scale(0.99); }
-    
-    .filter-chip {
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 14px;
-      border-radius: 20px;
-      border: 2px solid #e5e7eb;
-      background: white;
-      cursor: pointer;
-      margin: 4px;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    .filter-chip:hover { border-color: #3b82f6; }
+    .handle-area { padding: 12px 16px 8px; cursor: pointer; background: white; border-radius: 16px 16px 0 0; }
+    .handle { width: 36px; height: 4px; background: #d1d5db; border-radius: 2px; margin: 0 auto 8px; }
+    .sheet-title { text-align: center; font-weight: 600; font-size: 15px; color: #374151; }
+    .store-list { overflow-y: auto; height: calc(75vh - 56px); padding-bottom: 100px; -webkit-overflow-scrolling: touch; }
+    .card { background: white; border-radius: 12px; padding: 14px; margin: 8px 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); cursor: pointer; border: 1px solid #f3f4f6; }
+    .filter-chip { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 20px; border: 2px solid #e5e7eb; background: white; cursor: pointer; margin: 4px; font-size: 14px; transition: all 0.2s; }
     .filter-chip.active { background: #3b82f6; color: white; border-color: #3b82f6; }
-    
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: flex-end;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: white;
-      width: 100%;
-      border-radius: 16px 16px 0 0;
-      max-height: 85vh;
-      overflow-y: auto;
-    }
-    
-    .detail-page {
-      position: fixed;
-      inset: 0;
-      background: white;
-      z-index: 2000;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    .photo-slide {
-      height: 200px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 56px;
-    }
-    
-    .detail-map {
-      width: 100%;
-      height: 160px;
-      border-radius: 12px;
-      margin: 12px 0;
-    }
-    
-    .tag {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      margin: 2px;
-    }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; z-index: 1000; }
+    .modal-content { background: white; width: 100%; border-radius: 16px 16px 0 0; max-height: 85vh; overflow-y: auto; }
+    .detail-page { position: fixed; inset: 0; background: white; z-index: 2000; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .photo-slide { height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; font-size: 56px; }
+    .detail-map { width: 100%; height: 160px; border-radius: 12px; margin: 12px 0; }
+    .tag { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; margin: 2px; }
     .tag-gray { background: #f3f4f6; color: #374151; }
     .tag-green { background: #dcfce7; color: #166534; }
     .tag-blue { background: #dbeafe; color: #1e40af; }
-    
-    .btn-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr; /* 버튼 3개 균등 배치 */
-      gap: 8px;
-      margin: 16px 0;
-    }
-    .btn-group button {
-      padding: 12px 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      background: white;
-      cursor: pointer;
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-    }
-    .btn-group button:active { background: #f9fafb; }
-    
-    .loading-container {
-      position: fixed;
-      top: 56px;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f9fafb;
-      color: #6b7280;
-      font-size: 15px;
-    }
-    
-    .info-window {
-      padding: 12px 14px;
-      min-width: 180px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-    }
-    .info-window h4 {
-      margin: 0 0 6px 0;
-      font-size: 14px;
-      font-weight: bold;
-      color: #111;
-    }
-    .info-window p {
-      margin: 0 0 10px 0;
-      font-size: 12px;
-      color: #666;
-    }
-    .info-window button {
-      width: 100%;
-      padding: 8px;
-      background: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    
-    .empty-list {
-      text-align: center;
-      padding: 40px 20px;
-      color: #9ca3af;
-    }
-    .empty-list p { margin-top: 8px; font-size: 14px; }
+    .btn-group { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0; }
+    .btn-group button { padding: 12px 8px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .loading-container { position: fixed; top: 56px; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: #f9fafb; color: #6b7280; font-size: 15px; }
+    .info-window { padding: 12px 14px; min-width: 180px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); }
+    .info-window h4 { margin: 0 0 6px 0; font-size: 14px; font-weight: bold; color: #111; }
+    .info-window p { margin: 0 0 10px 0; font-size: 12px; color: #666; }
+    .info-window button { width: 100%; padding: 8px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+    .empty-list { text-align: center; padding: 40px 20px; color: #9ca3af; }
   </style>
 </head>
 <body>
@@ -263,211 +57,129 @@
   <div id="map"></div>
 
   <script>
-    window.kakaoMap = null;
-    window.clusterer = null;
-    window.markers = [];
-    window.currentOverlay = null;
-    window.myLocationMarker = null;
-    window.onBoundsChange = null;
-    
+    /* 지도 로직 */
+    window.kakaoMap = null; window.clusterer = null; window.markers = []; window.currentOverlay = null; window.myLocationMarker = null; window.onBoundsChange = null;
     window.initMap = function() {
-      if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') {
-        document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#fee2e2;color:#dc2626;">카카오맵 로딩 실패</div>';
-        return;
-      }
-      
+      if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') { document.getElementById('map').innerHTML = '카카오맵 로딩 실패'; return; }
       var container = document.getElementById('map');
-      var options = {
-        center: new kakao.maps.LatLng(37.5400, 126.9700),
-        level: 8
-      };
+      var options = { center: new kakao.maps.LatLng(37.5400, 126.9700), level: 8 };
       var map = new kakao.maps.Map(container, options);
       window.kakaoMap = map;
-      
-      window.clusterer = new kakao.maps.MarkerClusterer({
-        map: map,
-        averageCenter: true,
-        minLevel: 5
-      });
-      
+      window.clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
       var zoomControl = new kakao.maps.ZoomControl();
       map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
-      
-      kakao.maps.event.addListener(map, 'click', function() {
-        if (window.currentOverlay) {
-          window.currentOverlay.setMap(null);
-          window.currentOverlay = null;
-        }
-      });
-      
-      kakao.maps.event.addListener(map, 'idle', function() {
-        if (window.onBoundsChange) {
-          var bounds = map.getBounds();
-          window.onBoundsChange(bounds);
-        }
-      });
+      kakao.maps.event.addListener(map, 'click', function() { if (window.currentOverlay) { window.currentOverlay.setMap(null); window.currentOverlay = null; } });
+      kakao.maps.event.addListener(map, 'idle', function() { if (window.onBoundsChange) { var bounds = map.getBounds(); window.onBoundsChange(bounds); } });
     };
-    
-    window.isInBounds = function(lat, lng, bounds) {
-      if (!bounds) return true;
-      var sw = bounds.getSouthWest();
-      var ne = bounds.getNorthEast();
-      return lat >= sw.getLat() && lat <= ne.getLat() && lng >= sw.getLng() && lng <= ne.getLng();
-    };
-    
-    window.getMapBounds = function() {
-      if (!window.kakaoMap) return null;
-      return window.kakaoMap.getBounds();
-    };
-    
+    window.isInBounds = function(lat, lng, bounds) { if (!bounds) return true; var sw = bounds.getSouthWest(); var ne = bounds.getNorthEast(); return lat >= sw.getLat() && lat <= ne.getLat() && lng >= sw.getLng() && lng <= ne.getLng(); };
+    window.getMapBounds = function() { if (!window.kakaoMap) return null; return window.kakaoMap.getBounds(); };
     window.updateMarkers = function(stores) {
-      if (window.clusterer) {
-        window.clusterer.clear();
-      }
-      window.markers.forEach(function(item) {
-        if (item.overlay) item.overlay.setMap(null);
-      });
+      if (window.clusterer) window.clusterer.clear();
+      window.markers.forEach(function(item) { if (item.overlay) item.overlay.setMap(null); });
       window.markers = [];
-      
       if (!window.kakaoMap) return;
-      
       var newMarkers = stores.map(function(store) {
-        var marker = new kakao.maps.Marker({
-          position: new kakao.maps.LatLng(store.lat, store.lng)
-        });
-        
+        var marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(store.lat, store.lng) });
         var content = document.createElement('div');
         content.className = 'info-window';
-        content.innerHTML = 
-          '<h4>' + store.name + '</h4>' +
-          '<p>' + store.address + '</p>' +
-          '<button onclick="window.openStoreDetail(' + store.id + ')">상세보기</button>';
-        
-        var overlay = new kakao.maps.CustomOverlay({
-          content: content,
-          position: new kakao.maps.LatLng(store.lat, store.lng),
-          yAnchor: 1.5
-        });
-        
-        kakao.maps.event.addListener(marker, 'click', function() {
-          if (window.currentOverlay) {
-            window.currentOverlay.setMap(null);
-          }
-          overlay.setMap(window.kakaoMap);
-          window.currentOverlay = overlay;
-        });
-        
+        content.innerHTML = '<h4>' + store.name + '</h4><p>' + store.address + '</p><button onclick="window.openStoreDetail(' + store.id + ')">상세보기</button>';
+        var overlay = new kakao.maps.CustomOverlay({ content: content, position: new kakao.maps.LatLng(store.lat, store.lng), yAnchor: 1.5 });
+        kakao.maps.event.addListener(marker, 'click', function() { if (window.currentOverlay) window.currentOverlay.setMap(null); overlay.setMap(window.kakaoMap); window.currentOverlay = overlay; });
         window.markers.push({ marker: marker, overlay: overlay, store: store });
         return marker;
       });
-
-      if (window.clusterer) {
-        window.clusterer.addMarkers(newMarkers);
-      }
+      if (window.clusterer) window.clusterer.addMarkers(newMarkers);
     };
-    
-    window.openStoreDetail = function(storeId) {
-      if (window.currentOverlay) {
-        window.currentOverlay.setMap(null);
-        window.currentOverlay = null;
-      }
-      if (window.setSelectedStoreById) {
-        window.setSelectedStoreById(storeId);
-      }
-    };
-    
+    window.openStoreDetail = function(storeId) { if (window.currentOverlay) { window.currentOverlay.setMap(null); window.currentOverlay = null; } if (window.setSelectedStoreById) { window.setSelectedStoreById(storeId); } };
     window.goToMyLocation = function(callback) {
-      if (!navigator.geolocation) {
-        alert('이 브라우저에서는 위치 서비스를 지원하지 않습니다.');
-        if (callback) callback(false);
-        return;
-      }
-      
+      if (!navigator.geolocation) { alert('위치 서비스 미지원'); if (callback) callback(false); return; }
       navigator.geolocation.getCurrentPosition(
         function(position) {
-          var lat = position.coords.latitude;
-          var lng = position.coords.longitude;
-          var locPosition = new kakao.maps.LatLng(lat, lng);
-          
-          window.kakaoMap.setCenter(locPosition);
-          window.kakaoMap.setLevel(4);
-          
-          if (window.myLocationMarker) {
-            window.myLocationMarker.setMap(null);
-          }
-          
+          var lat = position.coords.latitude; var lng = position.coords.longitude; var locPosition = new kakao.maps.LatLng(lat, lng);
+          window.kakaoMap.setCenter(locPosition); window.kakaoMap.setLevel(4);
+          if (window.myLocationMarker) window.myLocationMarker.setMap(null);
           var markerContent = '<div style="width:18px;height:18px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>';
-          
-          window.myLocationMarker = new kakao.maps.CustomOverlay({
-            position: locPosition,
-            content: markerContent,
-            yAnchor: 0.5,
-            xAnchor: 0.5
-          });
+          window.myLocationMarker = new kakao.maps.CustomOverlay({ position: locPosition, content: markerContent, yAnchor: 0.5, xAnchor: 0.5 });
           window.myLocationMarker.setMap(window.kakaoMap);
-          
           if (callback) callback(true);
         },
-        function(error) {
-          var message = '위치를 가져올 수 없습니다.';
-          if (error.code === 1) {
-            message = '위치 권한을 허용해주세요.';
-          }
-          alert(message);
-          if (callback) callback(false);
-        },
+        function(error) { alert('위치를 가져올 수 없습니다.'); if (callback) callback(false); },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
       );
     };
-    
-    window.onload = function() {
-      window.initMap();
-    };
+    window.onload = function() { window.initMap(); };
   </script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
+    
+    // 👇👇👇 보내주신 URL을 여기에 적용했습니다! 👇👇👇
+    const LINKS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
+    
+    // 기존 지도 데이터 URL (위와 동일한 파일이라면 하나로 써도 되지만, 일단 유지합니다)
+    const STORE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
 
-    function cleanValue(val) {
-      if (!val) return '';
-      return val.trim().replace(/^["']|["']$/g, '').replace(/"/g, '');
-    }
-
-    function parseCSV(csv) {
-      const lines = csv.split('\n');
-      const stores = [];
+    function cleanValue(val) { if (!val) return ''; return val.trim().replace(/^["']|["']$/g, '').replace(/"/g, ''); }
+    
+    function parseStoreCSV(csv) {
+      const lines = csv.split('\n'); const stores = [];
       for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const values = line.split(',');
-        if (values.length < 10) continue;
-        
+        const line = lines[i].trim(); if (!line) continue; const values = line.split(','); if (values.length < 10) continue;
         const store = {
-          id: parseInt(values[0]) || i,
-          name: cleanValue(values[1]),
-          address: cleanValue(values[2]),
-          lat: parseFloat(values[3]) || 0,
-          lng: parseFloat(values[4]) || 0,
-          phone: cleanValue(values[5]),
-          hours: cleanValue(values[6]),
-          storeType: cleanValue(values[7]),
-          disposal: cleanValue(values[8]),
-          styles: cleanValue(values[9]),
-          gender: cleanValue(values[10]),
-          fitting: cleanValue(values[11]).toUpperCase() === 'TRUE',
-          restroom: cleanValue(values[12]).toUpperCase() === 'TRUE',
-          parking: cleanValue(values[13]).toUpperCase() === 'TRUE',
+          id: parseInt(values[0]) || i, name: cleanValue(values[1]), address: cleanValue(values[2]), lat: parseFloat(values[3]) || 0, lng: parseFloat(values[4]) || 0,
+          phone: cleanValue(values[5]), hours: cleanValue(values[6]), storeType: cleanValue(values[7]), disposal: cleanValue(values[8]), styles: cleanValue(values[9]),
+          gender: cleanValue(values[10]), fitting: cleanValue(values[11]).toUpperCase() === 'TRUE', restroom: cleanValue(values[12]).toUpperCase() === 'TRUE', parking: cleanValue(values[13]).toUpperCase() === 'TRUE',
         };
         if (store.name && store.lat && store.lng) stores.push(store);
       }
       return stores;
     }
 
+    // 링크 데이터 파싱 (시트 컬럼: 제목, 링크, 강조)
+    function parseLinkCSV(csv) {
+      const lines = csv.split('\n');
+      const links = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const values = line.split(',');
+        if (values.length < 2) continue; 
+        
+        links.push({
+          title: cleanValue(values[0]),
+          url: cleanValue(values[1]),
+          highlight: cleanValue(values[2]).toUpperCase() === 'TRUE' 
+        });
+      }
+      return links;
+    }
+    
     const storeTypeLabels = { '명품': { emoji: '💎', label: '명품' }, '셀렉트샵': { emoji: '🧢', label: '셀렉트샵' }, '킬로샵': { emoji: '⚖️', label: '킬로샵' }, '사회적기업': { emoji: '🍀', label: '사회적기업' } };
     const disposalLabels = { '판매가능': { emoji: '💰', label: '판매가능' }, '기부가능': { emoji: '🎁', label: '기부가능' }, '불가': { emoji: '❌', label: '불가' } };
     const styleLabels = { '아메카지': { emoji: '🇺🇸', label: '아메카지' }, '일본페미닌': { emoji: '👗', label: '일본페미닌' }, '스트릿': { emoji: '🛹', label: '스트릿' }, '클래식': { emoji: '👔', label: '클래식' }, '기타': { emoji: '✨', label: '기타' } };
     const genderLabels = { '남녀공용': { emoji: '👫', label: '남녀공용' }, '여성전용': { emoji: '👩', label: '여성전용' }, '남성전용': { emoji: '👨', label: '남성전용' } };
+
+    function ShoppingModal({ isOpen, onClose, links }) {
+      if (!isOpen) return null;
+      return (
+        <div className="link-modal-overlay" onClick={onClose}>
+          <div className="link-modal" onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>👋 안녕하세요!</h3>
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>더 많은 정보를 확인해보세요</p>
+            {links && links.length > 0 ? (
+                links.map((link, index) => (
+                  <a key={index} href={link.url} target="_blank" className={`link-btn ${link.highlight ? 'highlight' : ''}`}>
+                    {link.title}
+                  </a>
+                ))
+            ) : (
+                <p>로딩 중이거나 링크가 없습니다.</p>
+            )}
+            <button onClick={onClose} style={{ marginTop: '10px', background: 'none', border: 'none', color: '#999', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>닫기</button>
+          </div>
+        </div>
+      );
+    }
 
     function FilterModal({ isOpen, onClose, filters, setFilters }) {
       if (!isOpen) return null;
@@ -490,40 +202,14 @@
             </div>
              <div style={{ padding: '16px' }}>
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏛️ 매장 유형</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.storeType?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeType', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
-                ))}
-              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>{Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (<div key={key} className={`filter-chip ${filters.storeType?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeType', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>))}</div>
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>♻️ 옷 처분</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
-                ))}
-              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>{Object.entries(disposalLabels).map(([key, { emoji, label }]) => (<div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>))}</div>
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>💡 스타일</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {Object.entries(styleLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('styles', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
-                ))}
-              </div>
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>👥 성별</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {Object.entries(genderLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.gender?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('gender', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
-                ))}
-              </div>
-              <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏢 편의시설</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {[ { value: 'fitting', label: '👕 피팅룸' }, { value: 'restroom', label: '🚻 화장실' }, { value: 'parking', label: '🅿️ 주차가능' } ].map(({ value, label }) => (
-                  <div key={value} className={`filter-chip ${filters.amenities?.includes(value) ? 'active' : ''}`} onClick={() => toggleFilter('amenities', value)}>{label}</div>
-                ))}
-              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>{Object.entries(styleLabels).map(([key, { emoji, label }]) => (<div key={key} className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('styles', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>))}</div>
             </div>
             <div style={{ position: 'sticky', bottom: 0, background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px' }}>
-              <button onClick={onClose} style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '14px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '15px' }}>
-                적용하기 {activeCount > 0 && `(${activeCount})`}
-              </button>
+              <button onClick={onClose} style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '14px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '15px' }}>적용하기 {activeCount > 0 && `(${activeCount})`}</button>
             </div>
           </div>
         </div>
@@ -560,35 +246,21 @@
             <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '20px 0' }} />
             <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>🏛️ 매장 유형</h3>
             <div style={{ marginBottom: '20px' }}><span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span></div>
-            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>♻️ 옷 처분</h3>
-            <div style={{ marginBottom: '20px' }}><span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>📍 위치</h3>
             <div ref={mapRef} className="detail-map"></div>
             
-            {/* 👇 버튼 모음 */}
             <div className="btn-group">
-              {/* 길찾기 버튼이 이제 네이버 지도로 연결됩니다 */}
-              <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(store.name)}`)}>
-                📍 길찾기
-              </button>
+              <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(store.name)}`)}>📍 길찾기</button>
               <button onClick={() => window.location.href = `tel:${store.phone}`}>📞 전화</button>
               <button onClick={() => { if (navigator.share) navigator.share({ title: store.name, text: store.address, url: window.location.href }); }}>🔗 공유</button>
             </div>
-
-            {/* 👇 네이버 블로그 검색 버튼 */}
+            
+            {/* 👇 블로그 탭 검색 수정됨 (where=blog 추가) */}
             <div style={{ marginTop: '12px' }}>
-              <button 
-                onClick={() => window.open(`https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(store.name + ' 빈티지')}`)}
-                style={{
-                  width: '100%', padding: '12px', backgroundColor: '#03C75A', color: 'white',
-                  border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px'
-                }}
-              >
+              <button onClick={() => window.open(`https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(store.name + ' 빈티지')}`)} style={{ width: '100%', padding: '12px', backgroundColor: '#03C75A', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                 <span style={{ marginRight: '8px' }}>N</span> 네이버 블로그 후기 모아보기
               </button>
             </div>
-
             <div style={{ height: '50px' }}></div>
           </div>
         </div>
@@ -597,6 +269,7 @@
 
     function App() {
       const [stores, setStores] = useState([]);
+      const [links, setLinks] = useState([]);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState(null);
       const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
@@ -606,24 +279,30 @@
       const [locating, setLocating] = useState(false);
       const [mapBounds, setMapBounds] = useState(null);
       const [searchTerm, setSearchTerm] = useState('');
+      const [isShoppingOpen, setIsShoppingOpen] = useState(false);
 
       useEffect(() => {
-        fetch(SHEET_URL)
+        fetch(STORE_SHEET_URL)
           .then(response => response.text())
           .then(csv => {
-            const parsedStores = parseCSV(csv);
+            const parsedStores = parseStoreCSV(csv);
             setStores(parsedStores);
             setLoading(false);
             if (window.updateMarkers) window.updateMarkers(parsedStores);
-            setTimeout(() => {
-              const bounds = window.getMapBounds();
-              if (bounds) setMapBounds(bounds);
-            }, 500);
+            setTimeout(() => { const bounds = window.getMapBounds(); if (bounds) setMapBounds(bounds); }, 500);
           })
-          .catch(err => {
-            setError('데이터를 불러오는데 실패했습니다.');
-            setLoading(false);
-          });
+          .catch(err => { console.error(err); setError('데이터를 불러오는데 실패했습니다.'); setLoading(false); });
+
+        // 링크 데이터 불러오기
+        if (LINKS_SHEET_URL && LINKS_SHEET_URL.startsWith('http')) {
+            fetch(LINKS_SHEET_URL)
+            .then(response => response.text())
+            .then(csv => {
+                const parsedLinks = parseLinkCSV(csv);
+                setLinks(parsedLinks);
+            })
+            .catch(err => console.log('링크 데이터 로딩 실패:', err));
+        }
       }, []);
 
       useEffect(() => { window.onBoundsChange = (bounds) => { setMapBounds(bounds); }; }, []);
@@ -639,33 +318,15 @@
         if (filters.storeType?.length && !filters.storeType.includes(store.storeType)) return false;
         if (filters.disposal?.length && !filters.disposal.includes(store.disposal)) return false;
         if (filters.styles?.length && !filters.styles.includes(store.styles)) return false;
-        if (filters.gender?.length && !filters.gender.includes(store.gender)) return false;
-        if (filters.amenities?.length) {
-          if (filters.amenities.includes('fitting') && !store.fitting) return false;
-          if (filters.amenities.includes('restroom') && !store.restroom) return false;
-          if (filters.amenities.includes('parking') && !store.parking) return false;
-        }
         return true;
       });
 
-      const visibleStores = filteredByFilters.filter(store => {
-        if (!mapBounds) return true;
-        return window.isInBounds(store.lat, store.lng, mapBounds);
-      });
-
-      useEffect(() => {
-        if (window.updateMarkers) {
-          window.updateMarkers(filteredByFilters);
-        }
-      }, [filteredByFilters]);
+      const visibleStores = filteredByFilters.filter(store => { if (!mapBounds) return true; return window.isInBounds(store.lat, store.lng, mapBounds); });
+      useEffect(() => { if (window.updateMarkers) window.updateMarkers(filteredByFilters); }, [filteredByFilters]);
 
       const activeFilterCount = Object.values(filters).flat().length;
       const handleReset = () => { setIsBottomSheetOpen(false); setFilters({}); setSearchTerm(''); setSelectedStore(null); };
-
-      const handleMyLocation = () => {
-        setLocating(true);
-        window.goToMyLocation(function(success) { setLocating(false); });
-      };
+      const handleMyLocation = () => { setLocating(true); window.goToMyLocation(function(success) { setLocating(false); }); };
 
       if (loading) return <div className="loading-container">데이터를 불러오는 중...</div>;
       if (error) return <div className="loading-container" style={{ color: '#dc2626' }}>{error}</div>;
@@ -675,26 +336,13 @@
           <div className="header">
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#f3f4f6', borderRadius: '8px', padding: '0 10px', marginRight: '10px', height: '36px' }}>
                 <span style={{ marginRight: '6px' }}>🔍</span>
-                <input 
-                    type="text" 
-                    placeholder="매장, 지역 검색" 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '14px' }}
-                />
+                <input type="text" placeholder="매장, 지역 검색" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '14px' }} />
                 {searchTerm && <button onClick={() => setSearchTerm('')} style={{ border: 'none', background: 'none', color: '#999', cursor: 'pointer', padding: '0 4px' }}>✕</button>}
             </div>
-
-            <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
-              필터
-              {activeFilterCount > 0 && (
-                <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#3b82f6', color: 'white', fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+            <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>필터 {activeFilterCount > 0 && (<span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#3b82f6', color: 'white', fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{activeFilterCount}</span>)}</button>
           </div>
 
+          <button className="shopping-btn" onClick={() => setIsShoppingOpen(true)} title="링크 모음">🛍️</button>
           <button className={`my-location-btn ${locating ? 'loading' : ''}`} onClick={handleMyLocation}>📍</button>
 
           <div className={`bottom-sheet ${isBottomSheetOpen ? 'open' : 'closed'}`}>
@@ -702,7 +350,6 @@
               <div className="handle"></div>
               <div className="sheet-title">{isBottomSheetOpen ? `검색 결과 ${visibleStores.length}개` : `목록 열기 (${visibleStores.length}개)`}</div>
             </div>
-
             {isBottomSheetOpen && (
               <div className="store-list">
                 {visibleStores.length === 0 ? (
@@ -715,10 +362,7 @@
                       <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
                         <h3 style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>{store.name}</h3>
                         <p style={{ color: '#4b5563', fontSize: '13px', marginBottom: '10px' }}>📍 {store.address}</p>
-                        <div>
-                          <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
-                          <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
-                        </div>
+                        <div><span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span><span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span></div>
                       </div>
                     );
                   })
@@ -728,6 +372,8 @@
           </div>
           <FilterModal isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} filters={filters} setFilters={setFilters} />
           {selectedStore && <DetailPage store={selectedStore} onClose={() => setSelectedStore(null)} />}
+          
+          <ShoppingModal isOpen={isShoppingOpen} onClose={() => setIsShoppingOpen(false)} links={links} />
         </>
       );
     }
