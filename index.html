@@ -188,7 +188,7 @@
     
     .btn-group {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr; /* 버튼 3개 균등 배치 */
       gap: 8px;
       margin: 16px 0;
     }
@@ -199,6 +199,10 @@
       background: white;
       cursor: pointer;
       font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
     }
     .btn-group button:active { background: #f9fafb; }
     
@@ -280,7 +284,6 @@
       var map = new kakao.maps.Map(container, options);
       window.kakaoMap = map;
       
-      // 마커 클러스터러 생성
       window.clusterer = new kakao.maps.MarkerClusterer({
         map: map,
         averageCenter: true,
@@ -485,7 +488,6 @@
               <h2 style={{ fontWeight: 'bold', fontSize: '17px', margin: 0 }}>필터</h2>
               <button onClick={() => setFilters({})} style={{ color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}>초기화</button>
             </div>
-            
              <div style={{ padding: '16px' }}>
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏛️ 매장 유형</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
@@ -493,28 +495,24 @@
                   <div key={key} className={`filter-chip ${filters.storeType?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeType', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
-              
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>♻️ 옷 처분</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
-
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>💡 스타일</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(styleLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('styles', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
-
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>👥 성별</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(genderLabels).map(([key, { emoji, label }]) => (
                   <div key={key} className={`filter-chip ${filters.gender?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('gender', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
-
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏢 편의시설</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {[ { value: 'fitting', label: '👕 피팅룸' }, { value: 'restroom', label: '🚻 화장실' }, { value: 'parking', label: '🅿️ 주차가능' } ].map(({ value, label }) => (
@@ -522,7 +520,6 @@
                 ))}
               </div>
             </div>
-
             <div style={{ position: 'sticky', bottom: 0, background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px' }}>
               <button onClick={onClose} style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '14px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '15px' }}>
                 적용하기 {activeCount > 0 && `(${activeCount})`}
@@ -545,8 +542,6 @@
       if (!store) return null;
       const storeTypeInfo = storeTypeLabels[store.storeType] || { emoji: '🏪', label: store.storeType };
       const disposalInfo = disposalLabels[store.disposal] || { emoji: '📦', label: store.disposal };
-      const styleInfo = styleLabels[store.styles] || { emoji: '✨', label: store.styles };
-      const genderInfo = genderLabels[store.gender] || { emoji: '👥', label: store.gender };
 
       return (
         <div className="detail-page">
@@ -570,29 +565,24 @@
             <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>📍 위치</h3>
             <div ref={mapRef} className="detail-map"></div>
             
+            {/* 👇 버튼 모음 */}
             <div className="btn-group">
-              <button onClick={() => window.open(`https://map.kakao.com/link/to/${store.name},${store.lat},${store.lng}`)}>📍 길찾기</button>
+              {/* 길찾기 버튼이 이제 네이버 지도로 연결됩니다 */}
+              <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(store.name)}`)}>
+                📍 길찾기
+              </button>
               <button onClick={() => window.location.href = `tel:${store.phone}`}>📞 전화</button>
               <button onClick={() => { if (navigator.share) navigator.share({ title: store.name, text: store.address, url: window.location.href }); }}>🔗 공유</button>
             </div>
 
-            {/* 👇 네이버 블로그 검색 버튼 추가됨 */}
+            {/* 👇 네이버 블로그 검색 버튼 */}
             <div style={{ marginTop: '12px' }}>
               <button 
                 onClick={() => window.open(`https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(store.name + ' 빈티지')}`)}
                 style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#03C75A',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '14px'
+                  width: '100%', padding: '12px', backgroundColor: '#03C75A', color: 'white',
+                  border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px'
                 }}
               >
                 <span style={{ marginRight: '8px' }}>N</span> 네이버 블로그 후기 모아보기
