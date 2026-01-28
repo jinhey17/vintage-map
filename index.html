@@ -7,7 +7,9 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb"></script>
+  
+  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=ddb2d2fdd091b40e8df161e74dbc3aeb&libraries=services,clusterer"></script>
+  
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { 
@@ -57,16 +59,9 @@
       align-items: center;
       justify-content: center;
     }
-    .my-location-btn:hover {
-      background: #f3f4f6;
-    }
-    .my-location-btn.loading {
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
+    .my-location-btn:hover { background: #f3f4f6; }
+    .my-location-btn.loading { animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     
     .bottom-sheet {
       position: fixed;
@@ -81,12 +76,8 @@
       height: 75vh;
       max-height: calc(100vh - 56px);
     }
-    .bottom-sheet.closed { 
-      transform: translateY(calc(100% - 64px)); 
-    }
-    .bottom-sheet.open { 
-      transform: translateY(0); 
-    }
+    .bottom-sheet.closed { transform: translateY(calc(100% - 64px)); }
+    .bottom-sheet.open { transform: translateY(0); }
     
     .handle-area {
       padding: 12px 16px 8px;
@@ -126,10 +117,7 @@
       cursor: pointer;
       border: 1px solid #f3f4f6;
     }
-    .card:active { 
-      background: #f9fafb; 
-      transform: scale(0.99);
-    }
+    .card:active { background: #f9fafb; transform: scale(0.99); }
     
     .filter-chip {
       display: inline-flex;
@@ -144,11 +132,7 @@
       transition: all 0.2s;
     }
     .filter-chip:hover { border-color: #3b82f6; }
-    .filter-chip.active {
-      background: #3b82f6;
-      color: white;
-      border-color: #3b82f6;
-    }
+    .filter-chip.active { background: #3b82f6; color: white; border-color: #3b82f6; }
     
     .modal {
       position: fixed;
@@ -267,10 +251,7 @@
       padding: 40px 20px;
       color: #9ca3af;
     }
-    .empty-list p {
-      margin-top: 8px;
-      font-size: 14px;
-    }
+    .empty-list p { margin-top: 8px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -279,6 +260,7 @@
 
   <script>
     window.kakaoMap = null;
+    window.clusterer = null;
     window.markers = [];
     window.currentOverlay = null;
     window.myLocationMarker = null;
@@ -293,10 +275,17 @@
       var container = document.getElementById('map');
       var options = {
         center: new kakao.maps.LatLng(37.5400, 126.9700),
-        level: 7
+        level: 8 // 클러스터링을 확인하려면 레벨을 넉넉하게 잡는 게 좋습니다
       };
       var map = new kakao.maps.Map(container, options);
       window.kakaoMap = map;
+      
+      // 마커 클러스터러 생성 (마커들을 묶어주는 역할)
+      window.clusterer = new kakao.maps.MarkerClusterer({
+        map: map, // 마커들을 클러스터로 관리하고 표시할 지도 객체 
+        averageCenter: true, // 클러스터에 포함된 마커들의 평균 위치를 클러스터 마커 위치로 설정 
+        minLevel: 5 // 클러스터 할 최소 지도 레벨 
+      });
       
       var zoomControl = new kakao.maps.ZoomControl();
       map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
@@ -308,7 +297,6 @@
         }
       });
       
-      // 지도 영역 변경 이벤트 (이동, 줌)
       kakao.maps.event.addListener(map, 'idle', function() {
         if (window.onBoundsChange) {
           var bounds = map.getBounds();
@@ -317,7 +305,6 @@
       });
     };
     
-    // 매장이 현재 지도 영역 안에 있는지 확인
     window.isInBounds = function(lat, lng, bounds) {
       if (!bounds) return true;
       var sw = bounds.getSouthWest();
@@ -325,25 +312,27 @@
       return lat >= sw.getLat() && lat <= ne.getLat() && lng >= sw.getLng() && lng <= ne.getLng();
     };
     
-    // 현재 지도 영역 가져오기
     window.getMapBounds = function() {
       if (!window.kakaoMap) return null;
       return window.kakaoMap.getBounds();
     };
     
     window.updateMarkers = function(stores) {
+      // 1. 기존 클러스터러와 오버레이 초기화
+      if (window.clusterer) {
+        window.clusterer.clear();
+      }
       window.markers.forEach(function(item) {
-        item.marker.setMap(null);
         if (item.overlay) item.overlay.setMap(null);
       });
       window.markers = [];
       
       if (!window.kakaoMap) return;
       
-      stores.forEach(function(store) {
+      // 2. 새로운 마커 생성 (지도에 바로 setMap하지 않음)
+      var newMarkers = stores.map(function(store) {
         var marker = new kakao.maps.Marker({
-          position: new kakao.maps.LatLng(store.lat, store.lng),
-          map: window.kakaoMap
+          position: new kakao.maps.LatLng(store.lat, store.lng)
         });
         
         var content = document.createElement('div');
@@ -368,7 +357,14 @@
         });
         
         window.markers.push({ marker: marker, overlay: overlay, store: store });
+        
+        return marker;
       });
+
+      // 3. 클러스터러에 마커 리스트를 한 번에 추가
+      if (window.clusterer) {
+        window.clusterer.addMarkers(newMarkers);
+      }
     };
     
     window.openStoreDetail = function(storeId) {
@@ -421,11 +417,7 @@
           alert(message);
           if (callback) callback(false);
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
-        }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
       );
     };
     
@@ -436,7 +428,6 @@
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
-
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
 
     function cleanValue(val) {
@@ -447,11 +438,9 @@
     function parseCSV(csv) {
       const lines = csv.split('\n');
       const stores = [];
-      
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        
         const values = line.split(',');
         if (values.length < 10) continue;
         
@@ -471,56 +460,25 @@
           restroom: cleanValue(values[12]).toUpperCase() === 'TRUE',
           parking: cleanValue(values[13]).toUpperCase() === 'TRUE',
         };
-        
-        if (store.name && store.lat && store.lng) {
-          stores.push(store);
-        }
+        if (store.name && store.lat && store.lng) stores.push(store);
       }
-      
       return stores;
     }
 
-    const storeTypeLabels = {
-      '명품': { emoji: '💎', label: '명품' },
-      '셀렉트샵': { emoji: '🧢', label: '셀렉트샵' },
-      '킬로샵': { emoji: '⚖️', label: '킬로샵' },
-      '사회적기업': { emoji: '🍀', label: '사회적기업' }
-    };
-
-    const disposalLabels = {
-      '판매가능': { emoji: '💰', label: '판매가능' },
-      '기부가능': { emoji: '🎁', label: '기부가능' },
-      '불가': { emoji: '❌', label: '불가' }
-    };
-
-    const styleLabels = {
-      '아메카지': { emoji: '🇺🇸', label: '아메카지' },
-      '일본페미닌': { emoji: '👗', label: '일본페미닌' },
-      '스트릿': { emoji: '🛹', label: '스트릿' },
-      '클래식': { emoji: '👔', label: '클래식' },
-      '기타': { emoji: '✨', label: '기타' }
-    };
-
-    const genderLabels = {
-      '남녀공용': { emoji: '👫', label: '남녀공용' },
-      '여성전용': { emoji: '👩', label: '여성전용' },
-      '남성전용': { emoji: '👨', label: '남성전용' }
-    };
+    const storeTypeLabels = { '명품': { emoji: '💎', label: '명품' }, '셀렉트샵': { emoji: '🧢', label: '셀렉트샵' }, '킬로샵': { emoji: '⚖️', label: '킬로샵' }, '사회적기업': { emoji: '🍀', label: '사회적기업' } };
+    const disposalLabels = { '판매가능': { emoji: '💰', label: '판매가능' }, '기부가능': { emoji: '🎁', label: '기부가능' }, '불가': { emoji: '❌', label: '불가' } };
+    const styleLabels = { '아메카지': { emoji: '🇺🇸', label: '아메카지' }, '일본페미닌': { emoji: '👗', label: '일본페미닌' }, '스트릿': { emoji: '🛹', label: '스트릿' }, '클래식': { emoji: '👔', label: '클래식' }, '기타': { emoji: '✨', label: '기타' } };
+    const genderLabels = { '남녀공용': { emoji: '👫', label: '남녀공용' }, '여성전용': { emoji: '👩', label: '여성전용' }, '남성전용': { emoji: '👨', label: '남성전용' } };
 
     function FilterModal({ isOpen, onClose, filters, setFilters }) {
       if (!isOpen) return null;
-
       const toggleFilter = (category, value) => {
         setFilters(prev => {
           const current = prev[category] || [];
-          if (current.includes(value)) {
-            return { ...prev, [category]: current.filter(v => v !== value) };
-          } else {
-            return { ...prev, [category]: [...current, value] };
-          }
+          if (current.includes(value)) return { ...prev, [category]: current.filter(v => v !== value) };
+          else return { ...prev, [category]: [...current, value] };
         });
       };
-
       const activeCount = Object.values(filters).flat().length;
 
       return (
@@ -531,54 +489,40 @@
               <h2 style={{ fontWeight: 'bold', fontSize: '17px', margin: 0 }}>필터</h2>
               <button onClick={() => setFilters({})} style={{ color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}>초기화</button>
             </div>
-
-            <div style={{ padding: '16px' }}>
+            
+             <div style={{ padding: '16px' }}>
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏛️ 매장 유형</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(storeTypeLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.storeType?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeType', key)}>
-                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
-                  </div>
+                  <div key={key} className={`filter-chip ${filters.storeType?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('storeType', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
-
+              
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>♻️ 옷 처분</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(disposalLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}>
-                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
-                  </div>
+                  <div key={key} className={`filter-chip ${filters.disposal?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('disposal', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
 
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>💡 스타일</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(styleLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('styles', key)}>
-                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
-                  </div>
+                  <div key={key} className={`filter-chip ${filters.styles?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('styles', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
 
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>👥 성별</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {Object.entries(genderLabels).map(([key, { emoji, label }]) => (
-                  <div key={key} className={`filter-chip ${filters.gender?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('gender', key)}>
-                    <span style={{ marginRight: '6px' }}>{emoji}</span>{label}
-                  </div>
+                  <div key={key} className={`filter-chip ${filters.gender?.includes(key) ? 'active' : ''}`} onClick={() => toggleFilter('gender', key)}><span style={{ marginRight: '6px' }}>{emoji}</span>{label}</div>
                 ))}
               </div>
 
               <h3 style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '15px' }}>🏢 편의시설</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {[
-                  { value: 'fitting', label: '👕 피팅룸' },
-                  { value: 'restroom', label: '🚻 화장실' },
-                  { value: 'parking', label: '🅿️ 주차가능' }
-                ].map(({ value, label }) => (
-                  <div key={value} className={`filter-chip ${filters.amenities?.includes(value) ? 'active' : ''}`} onClick={() => toggleFilter('amenities', value)}>
-                    {label}
-                  </div>
+                {[ { value: 'fitting', label: '👕 피팅룸' }, { value: 'restroom', label: '🚻 화장실' }, { value: 'parking', label: '🅿️ 주차가능' } ].map(({ value, label }) => (
+                  <div key={value} className={`filter-chip ${filters.amenities?.includes(value) ? 'active' : ''}`} onClick={() => toggleFilter('amenities', value)}>{label}</div>
                 ))}
               </div>
             </div>
@@ -595,24 +539,14 @@
 
     function DetailPage({ store, onClose }) {
       const mapRef = useRef(null);
-      
       useEffect(() => {
         if (!store || !mapRef.current || typeof kakao === 'undefined') return;
-        
         const position = new kakao.maps.LatLng(store.lat, store.lng);
-        const map = new kakao.maps.Map(mapRef.current, {
-          center: position,
-          level: 3
-        });
-        
-        new kakao.maps.Marker({
-          position: position,
-          map: map
-        });
+        const map = new kakao.maps.Map(mapRef.current, { center: position, level: 3 });
+        new kakao.maps.Marker({ position: position, map: map });
       }, [store]);
 
       if (!store) return null;
-
       const storeTypeInfo = storeTypeLabels[store.storeType] || { emoji: '🏪', label: store.storeType };
       const disposalInfo = disposalLabels[store.disposal] || { emoji: '📦', label: store.disposal };
       const styleInfo = styleLabels[store.styles] || { emoji: '✨', label: store.styles };
@@ -624,70 +558,26 @@
             <button onClick={onClose} style={{ fontSize: '22px', marginRight: '12px', border: 'none', background: 'none', cursor: 'pointer' }}>←</button>
             <h1 style={{ fontWeight: 'bold', fontSize: '17px', margin: 0 }}>{store.name}</h1>
           </div>
-
           <div className="photo-slide">🏪</div>
-
           <div style={{ padding: '20px 16px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '16px' }}>{store.name}</h2>
-
             <div style={{ marginBottom: '20px', lineHeight: '1.8', fontSize: '14px' }}>
               <p style={{ margin: '6px 0' }}>📍 {store.address}</p>
               <p style={{ margin: '6px 0' }}>🕐 {store.hours}</p>
               <p style={{ margin: '6px 0' }}>📞 {store.phone}</p>
             </div>
-
             <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '20px 0' }} />
-
             <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>🏛️ 매장 유형</h3>
-            <div style={{ marginBottom: '20px' }}>
-              <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
-            </div>
-
+            <div style={{ marginBottom: '20px' }}><span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>♻️ 옷 처분</h3>
-            <div style={{ marginBottom: '20px' }}>
-              <span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span>
-            </div>
-
-            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>💡 스타일</h3>
-            <div style={{ marginBottom: '20px' }}>
-              <span className="tag tag-blue">{styleInfo.emoji} {styleInfo.label}</span>
-            </div>
-
-            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>👥 성별</h3>
-            <div style={{ marginBottom: '20px' }}>
-              <span className="tag tag-gray">{genderInfo.emoji} {genderInfo.label}</span>
-            </div>
-
-            <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>🏢 편의시설</h3>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', fontSize: '14px' }}>
-              <span>{store.fitting ? '✅' : '❌'} 피팅룸</span>
-              <span>{store.restroom ? '✅' : '❌'} 화장실</span>
-              <span>{store.parking ? '✅' : '❌'} 주차</span>
-            </div>
-
-            <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '20px 0' }} />
-
+            <div style={{ marginBottom: '20px' }}><span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>📍 위치</h3>
             <div ref={mapRef} className="detail-map"></div>
-
             <div className="btn-group">
-              <button onClick={() => window.open(`https://map.kakao.com/link/to/${store.name},${store.lat},${store.lng}`)}>
-                📍 길찾기
-              </button>
-              <button onClick={() => window.location.href = `tel:${store.phone}`}>
-                📞 전화
-              </button>
-              <button onClick={() => {
-                if (navigator.share) {
-                  navigator.share({ title: store.name, text: store.address, url: window.location.href });
-                } else {
-                  alert('공유 기능을 지원하지 않는 브라우저입니다.');
-                }
-              }}>
-                🔗 공유
-              </button>
+              <button onClick={() => window.open(`https://map.kakao.com/link/to/${store.name},${store.lat},${store.lng}`)}>📍 길찾기</button>
+              <button onClick={() => window.location.href = `tel:${store.phone}`}>📞 전화</button>
+              <button onClick={() => { if (navigator.share) navigator.share({ title: store.name, text: store.address, url: window.location.href }); }}>🔗 공유</button>
             </div>
-            
             <div style={{ height: '50px' }}></div>
           </div>
         </div>
@@ -704,6 +594,7 @@
       const [selectedStore, setSelectedStore] = useState(null);
       const [locating, setLocating] = useState(false);
       const [mapBounds, setMapBounds] = useState(null);
+      const [searchTerm, setSearchTerm] = useState('');
 
       useEffect(() => {
         fetch(SHEET_URL)
@@ -712,42 +603,28 @@
             const parsedStores = parseCSV(csv);
             setStores(parsedStores);
             setLoading(false);
-            
-            if (window.updateMarkers) {
-              window.updateMarkers(parsedStores);
-            }
-            
-            // 초기 bounds 설정
+            if (window.updateMarkers) window.updateMarkers(parsedStores);
             setTimeout(() => {
               const bounds = window.getMapBounds();
               if (bounds) setMapBounds(bounds);
             }, 500);
           })
           .catch(err => {
-            console.error('데이터 로딩 실패:', err);
             setError('데이터를 불러오는데 실패했습니다.');
             setLoading(false);
           });
       }, []);
 
-      // 지도 영역 변경 감지
-      useEffect(() => {
-        window.onBoundsChange = (bounds) => {
-          setMapBounds(bounds);
-        };
-      }, []);
+      useEffect(() => { window.onBoundsChange = (bounds) => { setMapBounds(bounds); }; }, []);
+      useEffect(() => { window.setSelectedStoreById = (id) => { const store = stores.find(s => s.id === id); if (store) setSelectedStore(store); }; }, [stores]);
 
-      useEffect(() => {
-        window.setSelectedStoreById = (id) => {
-          const store = stores.find(s => s.id === id);
-          if (store) {
-            setSelectedStore(store);
-          }
-        };
-      }, [stores]);
-
-      // 필터 적용
       const filteredByFilters = stores.filter(store => {
+        if (searchTerm) {
+           const term = searchTerm.toLowerCase();
+           const nameMatch = store.name.toLowerCase().includes(term);
+           const addrMatch = store.address.toLowerCase().includes(term);
+           if (!nameMatch && !addrMatch) return false;
+        }
         if (filters.storeType?.length && !filters.storeType.includes(store.storeType)) return false;
         if (filters.disposal?.length && !filters.disposal.includes(store.disposal)) return false;
         if (filters.styles?.length && !filters.styles.includes(store.styles)) return false;
@@ -760,13 +637,11 @@
         return true;
       });
 
-      // 지도 영역 필터 적용 (목록용)
       const visibleStores = filteredByFilters.filter(store => {
         if (!mapBounds) return true;
         return window.isInBounds(store.lat, store.lng, mapBounds);
       });
 
-      // 마커는 필터만 적용 (지도 영역 상관없이)
       useEffect(() => {
         if (window.updateMarkers) {
           window.updateMarkers(filteredByFilters);
@@ -774,50 +649,33 @@
       }, [filteredByFilters]);
 
       const activeFilterCount = Object.values(filters).flat().length;
-
-      const handleReset = () => {
-        setIsBottomSheetOpen(false);
-        setFilters({});
-        setSelectedStore(null);
-      };
+      const handleReset = () => { setIsBottomSheetOpen(false); setFilters({}); setSearchTerm(''); setSelectedStore(null); };
 
       const handleMyLocation = () => {
         setLocating(true);
-        window.goToMyLocation(function(success) {
-          setLocating(false);
-        });
+        window.goToMyLocation(function(success) { setLocating(false); });
       };
 
-      if (loading) {
-        return (
-          <>
-            <div className="header">
-              <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
-            </div>
-            <div className="loading-container">데이터를 불러오는 중...</div>
-          </>
-        );
-      }
-
-      if (error) {
-        return (
-          <>
-            <div className="header">
-              <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>🗺️ 빈티지 보물지도</h1>
-            </div>
-            <div className="loading-container" style={{ color: '#dc2626' }}>{error}</div>
-          </>
-        );
-      }
+      if (loading) return <div className="loading-container">데이터를 불러오는 중...</div>;
+      if (error) return <div className="loading-container" style={{ color: '#dc2626' }}>{error}</div>;
 
       return (
         <>
           <div className="header">
-            <h1 style={{ fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', margin: 0 }} onClick={handleReset}>
-              🗺️ 빈티지 보물지도
-            </h1>
-            <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '13px' }}>
-              🔍 필터
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#f3f4f6', borderRadius: '8px', padding: '0 10px', marginRight: '10px', height: '36px' }}>
+                <span style={{ marginRight: '6px' }}>🔍</span>
+                <input 
+                    type="text" 
+                    placeholder="매장, 지역 검색" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '14px' }}
+                />
+                {searchTerm && <button onClick={() => setSearchTerm('')} style={{ border: 'none', background: 'none', color: '#999', cursor: 'pointer', padding: '0 4px' }}>✕</button>}
+            </div>
+
+            <button onClick={() => setIsFilterOpen(true)} style={{ position: 'relative', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
+              필터
               {activeFilterCount > 0 && (
                 <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#3b82f6', color: 'white', fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {activeFilterCount}
@@ -826,38 +684,25 @@
             </button>
           </div>
 
-          <button 
-            className={`my-location-btn ${locating ? 'loading' : ''}`}
-            onClick={handleMyLocation}
-            title="내 위치로 이동"
-          >
-            📍
-          </button>
+          <button className={`my-location-btn ${locating ? 'loading' : ''}`} onClick={handleMyLocation}>📍</button>
 
           <div className={`bottom-sheet ${isBottomSheetOpen ? 'open' : 'closed'}`}>
             <div className="handle-area" onClick={() => setIsBottomSheetOpen(!isBottomSheetOpen)}>
               <div className="handle"></div>
-              <div className="sheet-title">
-                {isBottomSheetOpen ? `이 지역 매장 ${visibleStores.length}개` : `목록 열기 (${visibleStores.length}개)`}
-              </div>
+              <div className="sheet-title">{isBottomSheetOpen ? `검색 결과 ${visibleStores.length}개` : `목록 열기 (${visibleStores.length}개)`}</div>
             </div>
 
             {isBottomSheetOpen && (
               <div className="store-list">
                 {visibleStores.length === 0 ? (
-                  <div className="empty-list">
-                    <span style={{ fontSize: '40px' }}>🔍</span>
-                    <p>이 지역에는 매장이 없어요</p>
-                    <p>지도를 이동해보세요!</p>
-                  </div>
+                  <div className="empty-list"><span style={{ fontSize: '40px' }}>🔍</span><p>검색 결과가 없어요</p></div>
                 ) : (
                   visibleStores.map(store => {
                     const storeTypeInfo = storeTypeLabels[store.storeType] || { emoji: '🏪', label: store.storeType };
                     const disposalInfo = disposalLabels[store.disposal] || { emoji: '📦', label: store.disposal };
-                    
                     return (
                       <div key={store.id} className="card" onClick={() => setSelectedStore(store)}>
-                        <h3 style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>🏪 {store.name}</h3>
+                        <h3 style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>{store.name}</h3>
                         <p style={{ color: '#4b5563', fontSize: '13px', marginBottom: '10px' }}>📍 {store.address}</p>
                         <div>
                           <span className="tag tag-gray">{storeTypeInfo.emoji} {storeTypeInfo.label}</span>
@@ -870,14 +715,11 @@
               </div>
             )}
           </div>
-
           <FilterModal isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} filters={filters} setFilters={setFilters} />
-          
           {selectedStore && <DetailPage store={selectedStore} onClose={() => setSelectedStore(null)} />}
         </>
       );
     }
-
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
 </body>
