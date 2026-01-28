@@ -275,16 +275,16 @@
       var container = document.getElementById('map');
       var options = {
         center: new kakao.maps.LatLng(37.5400, 126.9700),
-        level: 8 // 클러스터링을 확인하려면 레벨을 넉넉하게 잡는 게 좋습니다
+        level: 8
       };
       var map = new kakao.maps.Map(container, options);
       window.kakaoMap = map;
       
-      // 마커 클러스터러 생성 (마커들을 묶어주는 역할)
+      // 마커 클러스터러 생성
       window.clusterer = new kakao.maps.MarkerClusterer({
-        map: map, // 마커들을 클러스터로 관리하고 표시할 지도 객체 
-        averageCenter: true, // 클러스터에 포함된 마커들의 평균 위치를 클러스터 마커 위치로 설정 
-        minLevel: 5 // 클러스터 할 최소 지도 레벨 
+        map: map,
+        averageCenter: true,
+        minLevel: 5
       });
       
       var zoomControl = new kakao.maps.ZoomControl();
@@ -318,7 +318,6 @@
     };
     
     window.updateMarkers = function(stores) {
-      // 1. 기존 클러스터러와 오버레이 초기화
       if (window.clusterer) {
         window.clusterer.clear();
       }
@@ -329,7 +328,6 @@
       
       if (!window.kakaoMap) return;
       
-      // 2. 새로운 마커 생성 (지도에 바로 setMap하지 않음)
       var newMarkers = stores.map(function(store) {
         var marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(store.lat, store.lng)
@@ -357,11 +355,9 @@
         });
         
         window.markers.push({ marker: marker, overlay: overlay, store: store });
-        
         return marker;
       });
 
-      // 3. 클러스터러에 마커 리스트를 한 번에 추가
       if (window.clusterer) {
         window.clusterer.addMarkers(newMarkers);
       }
@@ -573,11 +569,36 @@
             <div style={{ marginBottom: '20px' }}><span className="tag tag-green">{disposalInfo.emoji} {disposalInfo.label}</span></div>
             <h3 style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '15px' }}>📍 위치</h3>
             <div ref={mapRef} className="detail-map"></div>
+            
             <div className="btn-group">
               <button onClick={() => window.open(`https://map.kakao.com/link/to/${store.name},${store.lat},${store.lng}`)}>📍 길찾기</button>
               <button onClick={() => window.location.href = `tel:${store.phone}`}>📞 전화</button>
               <button onClick={() => { if (navigator.share) navigator.share({ title: store.name, text: store.address, url: window.location.href }); }}>🔗 공유</button>
             </div>
+
+            {/* 👇 네이버 블로그 검색 버튼 추가됨 */}
+            <div style={{ marginTop: '12px' }}>
+              <button 
+                onClick={() => window.open(`https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(store.name + ' 빈티지')}`)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#03C75A',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px'
+                }}
+              >
+                <span style={{ marginRight: '8px' }}>N</span> 네이버 블로그 후기 모아보기
+              </button>
+            </div>
+
             <div style={{ height: '50px' }}></div>
           </div>
         </div>
