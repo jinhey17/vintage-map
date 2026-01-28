@@ -57,7 +57,7 @@
   <div id="map"></div>
 
   <script>
-    /* 지도 로직 */
+    /* 지도 초기화 로직 */
     window.kakaoMap = null; window.clusterer = null; window.markers = []; window.currentOverlay = null; window.myLocationMarker = null; window.onBoundsChange = null;
     window.initMap = function() {
       if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') { document.getElementById('map').innerHTML = '카카오맵 로딩 실패'; return; }
@@ -113,14 +113,16 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
     
-    // 👇👇👇 보내주신 URL을 여기에 적용했습니다! 👇👇👇
-    const LINKS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
+    // 👇👇👇 업데이트된 주소 반영 완료! 👇👇👇
+    // 쇼핑몰 리스트 (가게 정보)
+    const STORE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?gid=0&single=true&output=csv';
     
-    // 기존 지도 데이터 URL (위와 동일한 파일이라면 하나로 써도 되지만, 일단 유지합니다)
-    const STORE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?output=csv';
+    // Links (쇼핑/링크 모음)
+    const LINKS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWUKKJrrtiQvRAldU0h9od8TX4Ms0c-VU5-fkWnQ8aVwFwSm_fZNWUNY1gLR6T4K1cj2HO5JtI-Lsg/pub?gid=512794545&single=true&output=csv';
 
     function cleanValue(val) { if (!val) return ''; return val.trim().replace(/^["']|["']$/g, '').replace(/"/g, ''); }
     
+    // 가게 데이터 파싱
     function parseStoreCSV(csv) {
       const lines = csv.split('\n'); const stores = [];
       for (let i = 1; i < lines.length; i++) {
@@ -135,7 +137,7 @@
       return stores;
     }
 
-    // 링크 데이터 파싱 (시트 컬럼: 제목, 링크, 강조)
+    // 링크 데이터 파싱 (안전장치 포함)
     function parseLinkCSV(csv) {
       const lines = csv.split('\n');
       const links = [];
@@ -143,10 +145,17 @@
         const line = lines[i].trim();
         if (!line) continue;
         const values = line.split(',');
-        if (values.length < 2) continue; 
         
+        // 🚨 안전장치: 데이터 열이 너무 많거나(가게 정보), 적으면 무시
+        if (values.length > 5) continue; 
+        if (values.length < 2) continue;
+        
+        // 🚨 안전장치: 제목이 숫자로만 되어 있으면(ID) 무시
+        const title = cleanValue(values[0]);
+        if (!isNaN(title) && title.length < 5) continue;
+
         links.push({
-          title: cleanValue(values[0]),
+          title: title,
           url: cleanValue(values[1]),
           highlight: cleanValue(values[2]).toUpperCase() === 'TRUE' 
         });
@@ -173,7 +182,9 @@
                   </a>
                 ))
             ) : (
-                <p>로딩 중이거나 링크가 없습니다.</p>
+                <p style={{color:'#999', fontSize:'13px'}}>
+                  링크 로딩 중...<br/>(잠시만 기다려주세요)
+                </p>
             )}
             <button onClick={onClose} style={{ marginTop: '10px', background: 'none', border: 'none', color: '#999', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>닫기</button>
           </div>
@@ -255,8 +266,8 @@
               <button onClick={() => { if (navigator.share) navigator.share({ title: store.name, text: store.address, url: window.location.href }); }}>🔗 공유</button>
             </div>
             
-            {/* 👇 블로그 탭 검색 수정됨 (where=blog 추가) */}
             <div style={{ marginTop: '12px' }}>
+              {/* 👇 블로그 탭 고정 (?where=blog) */}
               <button onClick={() => window.open(`https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(store.name + ' 빈티지')}`)} style={{ width: '100%', padding: '12px', backgroundColor: '#03C75A', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                 <span style={{ marginRight: '8px' }}>N</span> 네이버 블로그 후기 모아보기
               </button>
@@ -282,6 +293,7 @@
       const [isShoppingOpen, setIsShoppingOpen] = useState(false);
 
       useEffect(() => {
+        // 가게 데이터 로딩
         fetch(STORE_SHEET_URL)
           .then(response => response.text())
           .then(csv => {
@@ -293,16 +305,14 @@
           })
           .catch(err => { console.error(err); setError('데이터를 불러오는데 실패했습니다.'); setLoading(false); });
 
-        // 링크 데이터 불러오기
-        if (LINKS_SHEET_URL && LINKS_SHEET_URL.startsWith('http')) {
-            fetch(LINKS_SHEET_URL)
-            .then(response => response.text())
-            .then(csv => {
-                const parsedLinks = parseLinkCSV(csv);
-                setLinks(parsedLinks);
-            })
-            .catch(err => console.log('링크 데이터 로딩 실패:', err));
-        }
+        // 링크 데이터 로딩
+        fetch(LINKS_SHEET_URL)
+          .then(response => response.text())
+          .then(csv => {
+              const parsedLinks = parseLinkCSV(csv);
+              setLinks(parsedLinks);
+          })
+          .catch(err => console.log('링크 데이터 로딩 실패:', err));
       }, []);
 
       useEffect(() => { window.onBoundsChange = (bounds) => { setMapBounds(bounds); }; }, []);
